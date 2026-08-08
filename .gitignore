@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+
+# Downloaded/locally-built WASM artifacts from character, stage, sff, and engine
+public/wasm/
