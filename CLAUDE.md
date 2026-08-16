@@ -8,7 +8,7 @@
 The first complete, standalone, playable [OpenKakutou](https://github.com/openkakutou) game: a standard two-player, one-character-each versus match. It consumes the WebAssembly builds of the `character`, `stage`, `sff`, and `engine` sibling libraries, plus its own lifebar-rendering logic (mirroring `lifebar-viewer-web`'s in-app parsing approach — no separate `lifebar` library exists), and owns its own character-selection, match, and result flow end-to-end. It is not a component meant to be embedded elsewhere — a finished game on its own (see `roadmap`'s `.vibe/decisions/006` and `010`). It adopts `web-ui-kit` for its non-match UI (selection/setup/result screens), same as every other viewer/editor/mode app (roadmap `.vibe/decisions/011`); only the in-match HUD and rendering are custom game UI, exempt as real-time game UI rather than a panel/form/dialog `web-ui-kit` targets (decision `011`'s 2026-08-09 amendment).
 
 **Stack:** TypeScript / Vite (static build) / Vitest / Biome
-**Type:** frontend (static site, no backend) — a game, not a viewer/editor
+**Type:** frontend (client-side web app, no backend) — a game, not a viewer/editor. Ships on the web as this same static build (GitHub Pages), and packaged unmodified for Windows/Mac/Linux desktop and Android via [Tauri](https://tauri.app/), which wraps this build in the OS's native webview rather than requiring a separate native codebase — see roadmap `.vibe/decisions/020`.
 
 ## Project language
 
