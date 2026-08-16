@@ -3,11 +3,12 @@
 The first complete, standalone, playable [OpenKakutou](https://github.com/openkakutou) game: a standard two-player, one-character-each versus match. It consumes the WebAssembly builds of the `character`, `stage`, `sff`, and `engine` libraries, plus its own lifebar-rendering logic (mirroring `lifebar-viewer-web`'s in-app parsing approach), and owns its own character-selection, match, and result flow. Not a component meant to be embedded — a finished game on its own.
 
 <!-- vibe:begin:features -->
-This project is in early-stage development — only the project scaffold exists so far, no functionality yet.
+This project is in early-stage development. Available now:
+
+- Character roster discovery and selection: each player picks their character independently from the available roster, including picking the same character as their opponent. A character that fails to load is shown with a clear error instead of breaking the screen.
 
 Planned:
 
-- Character roster discovery and selection screen (one character per player)
 - Stage selection screen
 - Match setup (round count, time limit)
 - In-match HUD: lifebar, power bar, and round display driven by live `engine` match state
@@ -35,6 +36,12 @@ To update dependencies to their latest allowed versions:
 
 ```sh
 npm update
+```
+
+Download a specific version of the `character` library's WebAssembly build (needed to load a character):
+
+```sh
+npm run wasm:download -- v0.7.0
 ```
 <!-- vibe:end:install -->
 
@@ -71,5 +78,6 @@ npm run lint
 <!-- vibe:end:usage -->
 
 <!-- vibe:begin:docs-index -->
-No additional documentation yet.
+- [docs/architecture.md](docs/architecture.md) — how the app is put together: modules, data flow, and the roster manifest.
+- [docs/testing.md](docs/testing.md) — what the test suite covers and how to run it.
 <!-- vibe:end:docs-index -->

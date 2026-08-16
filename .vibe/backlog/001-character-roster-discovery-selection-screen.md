@@ -1,5 +1,5 @@
 ---
-status: todo
+status: in_progress
 ---
 # Character Roster Discovery/Selection Screen
 
