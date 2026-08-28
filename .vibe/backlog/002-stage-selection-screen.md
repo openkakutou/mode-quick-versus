@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 ---
 # Stage Selection Screen
 
@@ -17,3 +17,4 @@ Cross-repo blocker discovered while attempting implementation (not previously re
 
 ## Blocked
 2026-08-24: depends on `stage` repo shipping a WASM entrypoint + release pipeline (`stage#006`, not done — itself blocked on `stage#005`).
+2026-08-29: unblocked — `stage#005` and `stage#006` are both `status: done`, and `stage` has published tagged WASM releases up to `v0.10.0`. Confirmed the same blocker was already resolved for `stage-viewer-web#001` and `stage-editor#001` (both `done`, the latter already consuming the published `stage` WASM build). Back to `status: todo`.
