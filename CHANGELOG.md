@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-29
+
 ### Added
 
 - The stage selection screen: after both players pick a character, stages configured in a deployable stage list are validated and displayed with their name and a preview; a stage that fails to load shows a clear error card instead of crashing or being silently dropped. Players pick one shared stage together and can't continue until a stage is chosen.
@@ -17,5 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openkakutou/mode-quick-versus/releases/tag/v0.2.0

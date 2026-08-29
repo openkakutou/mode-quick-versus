@@ -84,6 +84,6 @@ npm run lint
 <!-- vibe:end:usage -->
 
 <!-- vibe:begin:docs-index -->
-- [docs/architecture.md](docs/architecture.md) — how the app is put together: modules, data flow, and the roster manifest.
+- [docs/architecture.md](docs/architecture.md) — how the app is put together: modules, data flow, and the roster/stage manifests.
 - [docs/testing.md](docs/testing.md) — what the test suite covers and how to run it.
 <!-- vibe:end:docs-index -->
