@@ -6,12 +6,19 @@
 
 ## Modules
 
-- **`src/wasm/`** — the bridge to the `character` WASM module. Loads `wasm_exec.js` and `character.wasm` (downloaded via `scripts/download-wasm.mjs`, gitignored under `public/wasm/`), and exposes a typed `loadCharacter()` returning either the character's name or a descriptive error — never throwing. See `src/wasm/bridge.ts`.
+- **`src/wasm/`** — one bridge file per WASM dependency, each an independent Go program with its own runtime instance:
+  - `bridge.ts` — the bridge to the `character` WASM module. Loads `wasm_exec.js` and `character.wasm` (downloaded via `scripts/download-wasm.mjs`, gitignored under `public/wasm/`), and exposes a typed `loadCharacter()` returning either the character's name or a descriptive error — never throwing.
+  - `stage-bridge.ts` — the equivalent bridge to the `stage` WASM module. Loads its own `stage-wasm_exec.js` and `stage.wasm` (downloaded separately, see below) and exposes a typed `loadStage()`. Kept as a separate `wasm_exec.js` file on disk from `character`'s own, since the two WASM modules are released independently and are not guaranteed to share the exact same Go toolchain version.
 - **`src/roster/`** — turns the deploy-time roster manifest into the actual displayable roster.
   - `manifest.ts` fetches and validates `public/roster-manifest.json` at runtime (not compiled into the JS bundle), so a deployment can change the roster without a rebuild.
   - `discovery.ts` fetches each manifest entry's character files and validates them through the WASM bridge, resolving every entry independently — one character's failure never affects another's.
-- **`src/selection/`** — `roster-screen.ts` renders the roster grid and the two independent Player 1 / Player 2 selection controls, gating a "Continue" action on both players having picked.
-- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell, wires the manifest fetch → discovery → selection screen pipeline, and shows the confirmed picks once both players are ready.
+- **`src/stage/`** — the same shape as `src/roster/`, for the stage list instead of the character roster.
+  - `manifest.ts` fetches and validates `public/stage-manifest.json` at runtime.
+  - `discovery.ts` fetches each manifest entry's `.def` file and validates it through the `stage` WASM bridge, resolving every entry independently.
+- **`src/selection/`** — one rendering module per screen:
+  - `roster-screen.ts` renders the roster grid and the two independent Player 1 / Player 2 selection controls, gating a "Continue" action on both players having picked.
+  - `stage-screen.ts` renders the stage grid as a single-choice `role="radiogroup"`, since (unlike character selection) both players share one stage — picking a new stage deselects the previous one, and Continue is gated on exactly one stage being chosen.
+- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell, then chains manifest fetch → discovery → selection screen for the character roster, followed by the same pipeline for the stage list once both players have picked, and shows the confirmed picks (both players' characters and the chosen stage) once the whole flow completes.
 
 ## Data flow
 
@@ -22,15 +29,20 @@ flowchart LR
     wasmBridge["wasm/bridge.ts\nloadCharacter"] --> discover
     charWasm["character.wasm"] --> wasmBridge
     discover --> screen["selection/roster-screen.ts\nrenderRosterScreen"]
-    screen -->|"onContinue(p1Id, p2Id)"| main["main.ts"]
+    screen -->|"onContinue(p1Id, p2Id)"| stageManifest["stage/manifest.ts\nfetchStageManifest"]
+    stageManifest --> stageDiscover["stage/discovery.ts\ndiscoverStages"]
+    stageWasmBridge["wasm/stage-bridge.ts\nloadStage"] --> stageDiscover
+    stageWasm["stage.wasm"] --> stageWasmBridge
+    stageDiscover --> stageScreen["selection/stage-screen.ts\nrenderStageScreen"]
+    stageScreen -->|"onContinue(stageId)"| main["main.ts confirmation"]
 ```
 
-Every external effect (`fetch`, the WASM instantiation) is injected as a parameter with a real default — `wasm/bridge.ts`'s `fetchWasmExecSource`/`fetchWasmBytes`, `roster/manifest.ts`'s `fetchManifestSource`, `roster/discovery.ts`'s `fetchBytes`/`loadCharacter` — so every layer is testable under Vitest/jsdom without a running dev server, and `main.ts`'s own tests inject a fake `loadCharacter` to test its wiring without touching the real WASM module at all.
+Every external effect (`fetch`, the WASM instantiation) is injected as a parameter with a real default — `wasm/bridge.ts`'s and `wasm/stage-bridge.ts`'s own `fetchWasmExecSource`/`fetchWasmBytes`, `roster/manifest.ts`'s and `stage/manifest.ts`'s `fetchManifestSource`, `roster/discovery.ts`'s and `stage/discovery.ts`'s `fetchBytes`/loader — so every layer is testable under Vitest/jsdom without a running dev server, and `main.ts`'s own tests inject fake `loadCharacter`/`loadStage` to test its wiring without touching either real WASM module.
 
-## Roster manifest
+## Roster and stage manifests
 
-The roster is not hardcoded into the app: `public/roster-manifest.json` is fetched at runtime and lists each character's file paths and a static portrait image path. The committed default ships as an empty array (`[]`); a real deployment overwrites this file with the actual roster at deploy time.
+Neither list is hardcoded into the app: `public/roster-manifest.json` and `public/stage-manifest.json` are both fetched at runtime and list each entry's file paths and a static portrait image path. Both committed defaults ship as an empty array (`[]`); a real deployment overwrites these files with the actual roster/stage list at deploy time.
 
 ## Local setup
 
-Beyond `npm install`, a working dev environment needs the `character` WASM build downloaded once (see README's Installation section — `npm run wasm:download -- <version>`), since `src/wasm/bridge.ts` loads it from `public/wasm/` (gitignored, never committed).
+Beyond `npm install`, a working dev environment needs both the `character` and `stage` WASM builds downloaded once (see README's Installation section — `npm run wasm:download -- <version>` and `npm run wasm:download:stage -- <version>`), since `src/wasm/bridge.ts` and `src/wasm/stage-bridge.ts` load them from `public/wasm/` (gitignored, never committed).

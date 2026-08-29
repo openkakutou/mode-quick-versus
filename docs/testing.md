@@ -7,12 +7,16 @@ Run the full suite with `npm test` (Vitest, jsdom environment). Every source fil
 ## What each layer's tests cover
 
 - **`src/wasm/bridge.test.ts`** — exercises the *real* `character.wasm` module (downloaded via `npm run wasm:download`, not mocked), injecting Node-backed stubs for the fetch effects so it runs without a server. Covers a valid load, a malformed `.def`, empty `.sff` bytes, and that repeated calls reuse the same instantiated module.
+- **`src/wasm/stage-bridge.test.ts`** — the same real-module approach as `bridge.test.ts`, against the real `stage.wasm` (downloaded via `npm run wasm:download:stage`). Covers a valid load, a malformed `.def`, an empty `.def` (a valid stage with no `[Info]` section, per the `stage` library's own tolerant parsing), and repeated-call reuse.
 - **`src/roster/manifest.test.ts`** — the manifest fetch/validation logic in isolation: valid entries, an empty roster, invalid JSON, a missing-field entry, a non-array manifest, and a fetch failure.
 - **`src/roster/discovery.test.ts`** — the discovery aggregation logic with a fake `loadCharacter`/`fetchBytes`: a successful entry, a character-load failure, a file-fetch failure, an empty roster, and one failing entry resolving independently of a sibling that succeeds.
 - **`src/roster/discovery.smoke.test.ts`** — an end-to-end sanity check wiring `discoverRoster` to the real WASM bridge (not fakes) against real fixture bytes, for both a valid and a broken character in the same run.
+- **`src/stage/manifest.test.ts`** — the same coverage shape as `roster/manifest.test.ts`, for the stage manifest.
+- **`src/stage/discovery.test.ts`** — the same coverage shape as `roster/discovery.test.ts`, for stage discovery.
 - **`src/selection/roster-screen.test.ts`** — the selection screen's rendering and interaction: name/portrait display, the empty-roster message, a non-interactive error card, Continue gated on both picks, independent per-player selection, the mirror-match case (both players picking the same character), and re-rendering replacing rather than appending content.
-- **`src/main.test.ts`** — the composition root's wiring, with `loadCharacter` and the manifest/byte fetches all injected as fakes: the app shell mounts correctly, the roster renders from a fetched manifest, a manifest failure shows a clear message, and a full pick-both-players-then-continue flow shows the confirmation.
-- **`scripts/download-wasm.test.mjs`** — the WASM download script: successful download, output directory creation, a missing version argument, a not-found tag, and the all-or-nothing rollback when one of the two assets fails partway through.
+- **`src/selection/stage-screen.test.ts`** — the stage screen's rendering and interaction: name/portrait display, the empty-list message, a non-interactive error card, the grid's `role="radiogroup"`/`role="radio"` semantics, Continue gated on a selection, single-choice selection (picking a new stage deselects the previous one), re-clicking the selected stage not deselecting it, and re-rendering replacing rather than appending content.
+- **`src/main.test.ts`** — the composition root's wiring, with `loadCharacter`/`loadStage` and the manifest/byte fetches all injected as fakes: the app shell mounts correctly, the roster renders from a fetched manifest, a manifest failure shows a clear message, picking both players' characters renders the stage screen, a stage manifest failure shows a clear message, and a full pick-both-players → pick-a-stage → continue flow shows the final confirmation naming both players and the chosen stage.
+- **`scripts/download-wasm.test.mjs`** — the WASM download script: successful download, output directory creation, a missing version argument, a not-found tag, the all-or-nothing rollback when one of the assets fails partway through, downloading an asset under a different local file name (the `stage` target's `wasm_exec.js` → `stage-wasm_exec.js` rename), and the CLI's target selection (`character` default, `stage`, an unknown target rejected as a usage error).
 
 ## Real-WASM fixtures
 
@@ -20,4 +24,6 @@ Run the full suite with `npm test` (Vitest, jsdom environment). Every source fil
 
 ## Real-browser verification
 
-Every layer above is covered by Vitest/jsdom. The screen has additionally been driven in a real headless-Chromium session against the running dev server (roster rendering, independent picks, the mirror-match case, and the Continue confirmation) as part of implementing backlog item 001 — jsdom cannot fully substitute for a real browser check on a feature this visual, though no repeatable script for it is checked into this repo yet.
+Every layer above is covered by Vitest/jsdom. Both selection screens have additionally been driven in a real headless-Chromium session against the running dev server — jsdom cannot fully substitute for a real browser check on a feature this visual, though no repeatable script for it is checked into this repo yet:
+- Backlog item 001 (character roster): roster rendering, independent picks, the mirror-match case, and the Continue confirmation.
+- Backlog item 002 (stage selection): stage rendering including a corrupt-stage error card, the radiogroup's single-choice selection, Continue's disabled/enabled states, and the final confirmation naming both players and the chosen stage.

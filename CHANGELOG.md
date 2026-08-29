@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The stage selection screen: after both players pick a character, stages configured in a deployable stage list are validated and displayed with their name and a preview; a stage that fails to load shows a clear error card instead of crashing or being silently dropped. Players pick one shared stage together and can't continue until a stage is chosen.
+
 ## [0.2.0] - 2026-08-16
 
 ### Added

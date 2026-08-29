@@ -20,6 +20,27 @@ const DEFAULT_ASSETS = Object.freeze(["character.wasm", "wasm_exec.js"]);
 const DEFAULT_OUT_DIR = "public/wasm";
 const DEFAULT_TIMEOUT_MS = 20_000;
 
+// Every WASM dependency this app can download release assets for. `stage`'s
+// wasm_exec.js is written to disk under a different name than character's —
+// the two modules are independently released and are not guaranteed to ship
+// from the exact same Go toolchain version, so downloading a second one
+// under the plain "wasm_exec.js" name would silently overwrite (and risk
+// mismatching) the first the next time either target is downloaded.
+const DEFAULT_TARGET = "character";
+const TARGETS = Object.freeze({
+  character: Object.freeze({
+    repo: "openkakutou/character",
+    assets: Object.freeze(["character.wasm", "wasm_exec.js"]),
+  }),
+  stage: Object.freeze({
+    repo: "openkakutou/stage",
+    assets: Object.freeze([
+      "stage.wasm",
+      Object.freeze({ name: "wasm_exec.js", localName: "stage-wasm_exec.js" }),
+    ]),
+  }),
+});
+
 export class DownloadError extends Error {
   constructor(message, exitCode) {
     super(message);
@@ -57,13 +78,20 @@ export async function downloadWasmRelease({
   const downloaded = [];
 
   for (const asset of assets) {
-    const finalPath = path.join(outDir, asset);
-    const tempPath = path.join(outDir, `.${asset}.tmp-${process.pid}`);
+    // An asset is either a plain remote file name (local name matches), or
+    // `{ name, localName }` when the file should land under a different
+    // name on disk than the one published in the release.
+    const remoteName = typeof asset === "string" ? asset : asset.name;
+    const localName =
+      typeof asset === "string" ? asset : (asset.localName ?? asset.name);
+
+    const finalPath = path.join(outDir, localName);
+    const tempPath = path.join(outDir, `.${localName}.tmp-${process.pid}`);
 
     try {
       const buffer = await fetchAsset({
-        url: `https://github.com/${repo}/releases/download/${version}/${asset}`,
-        asset,
+        url: `https://github.com/${repo}/releases/download/${version}/${remoteName}`,
+        asset: remoteName,
         version,
         repo,
         fetchImpl,
@@ -72,7 +100,7 @@ export async function downloadWasmRelease({
       await writeFile(tempPath, buffer);
       await rename(tempPath, finalPath);
       downloaded.push(finalPath);
-      log.log(`✓ ${asset}`);
+      log.log(`✓ ${localName}`);
     } catch (error) {
       await rm(tempPath, { force: true });
       await Promise.all(
@@ -129,13 +157,14 @@ async function fetchAsset({ url, asset, version, repo, fetchImpl, timeoutMs }) {
 function printUsage(stream) {
   stream.write(
     `${[
-      "Usage: download-wasm <version>",
+      "Usage: download-wasm [target] <version>",
       "",
-      `Downloads character.wasm and wasm_exec.js from ${DEFAULT_REPO}'s`,
-      `release <version> into ${DEFAULT_OUT_DIR}/.`,
+      `Downloads a target's release assets into ${DEFAULT_OUT_DIR}/.`,
+      `target defaults to "${DEFAULT_TARGET}" when omitted. Known targets: ${Object.keys(TARGETS).join(", ")}.`,
       "",
-      "Example:",
+      "Examples:",
       "  npm run wasm:download -- v0.1.0",
+      "  npm run wasm:download -- stage v0.10.0",
       "",
       "Options:",
       "  -h, --help     show this help",
@@ -166,10 +195,28 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
     return 0;
   }
 
-  const [version] = argv;
+  let target = DEFAULT_TARGET;
+  let version;
+  if (Object.hasOwn(TARGETS, argv[0])) {
+    target = argv[0];
+    [, version] = argv;
+  } else if (argv.length <= 1) {
+    [version] = argv;
+  } else {
+    process.stderr.write(
+      `Unknown target "${argv[0]}". Known targets: ${Object.keys(TARGETS).join(", ")}.\n`,
+    );
+    printUsage(process.stderr);
+    return EXIT_CODES.USAGE;
+  }
 
   try {
-    await downloadWasmRelease({ version, ...overrides });
+    await downloadWasmRelease({
+      version,
+      repo: TARGETS[target].repo,
+      assets: TARGETS[target].assets,
+      ...overrides,
+    });
     return 0;
   } catch (error) {
     if (error instanceof DownloadError) {

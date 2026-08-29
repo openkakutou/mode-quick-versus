@@ -6,15 +6,22 @@ import {
   fetchRosterManifest,
 } from "./roster/manifest.ts";
 import { renderRosterScreen } from "./selection/roster-screen.ts";
+import { renderStageScreen } from "./selection/stage-screen.ts";
+import { discoverStages } from "./stage/discovery.ts";
+import {
+  type FetchStageManifestOptions,
+  fetchStageManifest,
+} from "./stage/manifest.ts";
 import { appVersion } from "./version.ts";
 import { type WasmBridgeOptions, loadCharacter } from "./wasm/bridge.ts";
+import { type StageWasmBridgeOptions, loadStage } from "./wasm/stage-bridge.ts";
 
 const APP_TITLE = "Quick Versus";
 
 export interface RenderAppOptions {
   /** Forwarded to `fetchRosterManifest`; injectable for testing. */
   manifestOptions?: FetchRosterManifestOptions;
-  /** Fetches one character file's raw bytes. Defaults to `fetch()`; injectable for testing. */
+  /** Fetches one character or stage file's raw bytes. Defaults to `fetch()`; injectable for testing. */
   fetchBytes?: (filePath: string) => Promise<Uint8Array>;
   /**
    * Overrides the character loader used during roster discovery, bypassing
@@ -26,6 +33,16 @@ export interface RenderAppOptions {
   loadCharacter?: typeof loadCharacter;
   /** Forwarded to the real bridge's `loadCharacter` when `loadCharacter` is not overridden. */
   bridgeOptions?: WasmBridgeOptions;
+  /** Forwarded to `fetchStageManifest`; injectable for testing. */
+  stageManifestOptions?: FetchStageManifestOptions;
+  /**
+   * Overrides the stage loader used during stage discovery, same rationale
+   * as `loadCharacter` above. Defaults to the real bridge's `loadStage`,
+   * driven by `stageBridgeOptions`.
+   */
+  loadStage?: typeof loadStage;
+  /** Forwarded to the real bridge's `loadStage` when `loadStage` is not overridden. */
+  stageBridgeOptions?: StageWasmBridgeOptions;
 }
 
 async function defaultFetchBytes(filePath: string): Promise<Uint8Array> {
@@ -102,10 +119,53 @@ export async function renderApp(
   main.replaceChildren();
   renderRosterScreen(main, discovered, {
     onContinue: (player1Id, player2Id) => {
+      void showStageSelection(main, player1Id, player2Id, options);
+    },
+  });
+}
+
+/**
+ * Discovers the stage list (backlog item 002) and renders the stage
+ * selection screen in `main`, replacing the character selection screen. A
+ * stage manifest that fails to load degrades to a clear message instead of
+ * a blank/broken screen, same as the character roster's own handling.
+ */
+async function showStageSelection(
+  main: HTMLElement,
+  player1Id: string,
+  player2Id: string,
+  options: RenderAppOptions,
+): Promise<void> {
+  main.replaceChildren();
+  const status = document.createElement("p");
+  status.className = "app-status";
+  status.textContent = "Discovering stages…";
+  main.appendChild(status);
+
+  const stageManifestResult = await fetchStageManifest(
+    options.stageManifestOptions,
+  );
+  if (!stageManifestResult.ok) {
+    status.textContent = `Could not load the stage list: ${stageManifestResult.error}`;
+    return;
+  }
+
+  const resolveStage =
+    options.loadStage ??
+    ((defBytes: Uint8Array) => loadStage(defBytes, options.stageBridgeOptions));
+
+  const discoveredStages = await discoverStages(stageManifestResult.entries, {
+    fetchBytes: options.fetchBytes ?? defaultFetchBytes,
+    loadStage: resolveStage,
+  });
+
+  main.replaceChildren();
+  renderStageScreen(main, discoveredStages, {
+    onContinue: (stageId) => {
       main.replaceChildren();
       const confirmation = document.createElement("p");
       confirmation.className = "app-status";
-      confirmation.textContent = `Player 1: ${player1Id} — Player 2: ${player2Id}. Stage selection is coming soon.`;
+      confirmation.textContent = `Player 1: ${player1Id} — Player 2: ${player2Id} — Stage: ${stageId}. Match setup is coming soon.`;
       main.appendChild(confirmation);
     },
   });

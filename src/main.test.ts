@@ -1,6 +1,7 @@
 import "@openkakutou/web-ui-kit";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "./main.ts";
+import type { StageResult } from "./wasm/stage-types.ts";
 import type { CharacterResult } from "./wasm/types.ts";
 
 const manifestSource = JSON.stringify([
@@ -16,10 +17,57 @@ const manifestSource = JSON.stringify([
   },
 ]);
 
+const stageManifestSource = JSON.stringify([
+  {
+    id: "training-room",
+    portrait: "stages/training-room/portrait.png",
+    files: { def: "stages/training-room/stage.def" },
+  },
+]);
+
 function okLoadCharacter(name: string) {
   return vi.fn(
     async (): Promise<CharacterResult> => ({ ok: true, character: { name } }),
   );
+}
+
+function okLoadStage(name: string) {
+  return vi.fn(
+    async (): Promise<StageResult> => ({ ok: true, stage: { name } }),
+  );
+}
+
+/** Drives the app from a fresh render through both players' character picks. */
+async function renderAndPickCharacters(
+  root: HTMLElement,
+  overrides: Parameters<typeof renderApp>[2] = {},
+): Promise<HTMLElement> {
+  await renderApp(root, "0.1.0", {
+    manifestOptions: { fetchManifestSource: async () => manifestSource },
+    fetchBytes: async () => new Uint8Array(),
+    loadCharacter: okLoadCharacter("Ryu"),
+    stageManifestOptions: {
+      fetchManifestSource: async () => stageManifestSource,
+    },
+    loadStage: okLoadStage("Training Room"),
+    ...overrides,
+  });
+
+  const main = root.querySelector("main") as HTMLElement;
+  main.querySelector<HTMLElement>(".roster-screen__pick--p1")?.click();
+  main.querySelector<HTMLElement>(".roster-screen__pick--p2")?.click();
+  const continueEl = Array.from(main.querySelectorAll("wuik-button")).find(
+    (el) => el.textContent === "Continue",
+  ) as HTMLElement;
+  continueEl.click();
+  // Discovering stages is async (manifest fetch + WASM validation), so the
+  // stage screen doesn't exist synchronously right after the click.
+  await vi.waitFor(() => {
+    if (!main.querySelector(".stage-screen__grid, .stage-screen__empty")) {
+      throw new Error("stage screen not mounted yet");
+    }
+  });
+  return main;
 }
 
 describe("renderApp", () => {
@@ -70,26 +118,57 @@ describe("renderApp", () => {
     );
   });
 
-  it("shows a confirmation naming both players' picks once the selection screen's Continue is activated", async () => {
+  it("renders the stage selection screen once character selection's Continue is activated", async () => {
+    const root = document.createElement("div");
+
+    const main = await renderAndPickCharacters(root);
+
+    expect(main.textContent).toContain("Training Room");
+  });
+
+  it("shows a clear message instead of a blank screen when the stage manifest fails to load", async () => {
     const root = document.createElement("div");
 
     await renderApp(root, "0.1.0", {
       manifestOptions: { fetchManifestSource: async () => manifestSource },
       fetchBytes: async () => new Uint8Array(),
       loadCharacter: okLoadCharacter("Ryu"),
+      stageManifestOptions: {
+        fetchManifestSource: async () => {
+          throw new Error("network down");
+        },
+      },
+      loadStage: okLoadStage("unused"),
     });
 
     const main = root.querySelector("main") as HTMLElement;
-    const p1 = main.querySelector<HTMLElement>(".roster-screen__pick--p1");
-    const p2 = main.querySelector<HTMLElement>(".roster-screen__pick--p2");
-    p1?.click();
-    p2?.click();
+    main.querySelector<HTMLElement>(".roster-screen__pick--p1")?.click();
+    main.querySelector<HTMLElement>(".roster-screen__pick--p2")?.click();
     const continueEl = Array.from(main.querySelectorAll("wuik-button")).find(
       (el) => el.textContent === "Continue",
     ) as HTMLElement;
     continueEl.click();
 
-    expect(main.textContent).toContain("Player 1: ryu — Player 2: ryu");
+    await vi.waitFor(() => {
+      if (!main.textContent?.includes("Could not load the stage list")) {
+        throw new Error("error message not shown yet");
+      }
+    });
+  });
+
+  it("shows a confirmation naming both players' picks and the chosen stage once the stage screen's Continue is activated", async () => {
+    const root = document.createElement("div");
+
+    const main = await renderAndPickCharacters(root);
+    main.querySelector<HTMLElement>(".stage-screen__select")?.click();
+    const stageContinueEl = Array.from(
+      main.querySelectorAll("wuik-button"),
+    ).find((el) => el.textContent === "Continue") as HTMLElement;
+    stageContinueEl.click();
+
+    expect(main.textContent).toContain(
+      "Player 1: ryu — Player 2: ryu — Stage: training-room",
+    );
   });
 
   it("replaces previous content instead of appending on repeated renders", async () => {

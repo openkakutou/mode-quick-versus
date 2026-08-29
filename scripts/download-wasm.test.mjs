@@ -147,6 +147,61 @@ describe("downloadWasmRelease", () => {
     });
     expect(await readdir(outDir)).toEqual([]);
   });
+
+  it("writes an asset under a different local file name when one is given, without changing the remote URL fetched", async () => {
+    const wasmBytes = new Uint8Array([1, 2, 3]);
+    const jsBytes = new Uint8Array([4, 5]);
+    const fetchImpl = vi.fn(async (url) => {
+      // The remote asset is always requested as plain "wasm_exec.js" —
+      // only the on-disk file name changes.
+      if (url.endsWith("/stage.wasm")) return okResponse(wasmBytes);
+      if (url.endsWith("/wasm_exec.js")) return okResponse(jsBytes);
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    await downloadWasmRelease({
+      version: "v0.10.0",
+      repo: "openkakutou/stage",
+      assets: [
+        "stage.wasm",
+        { name: "wasm_exec.js", localName: "stage-wasm_exec.js" },
+      ],
+      outDir,
+      fetchImpl,
+      log: { log() {} },
+    });
+
+    const wasmOnDisk = await readFile(path.join(outDir, "stage.wasm"));
+    const jsOnDisk = await readFile(path.join(outDir, "stage-wasm_exec.js"));
+    expect(wasmOnDisk).toEqual(Buffer.from(wasmBytes));
+    expect(jsOnDisk).toEqual(Buffer.from(jsBytes));
+    expect((await readdir(outDir)).sort()).toEqual([
+      "stage-wasm_exec.js",
+      "stage.wasm",
+    ]);
+  });
+
+  it("rolls back a renamed asset already written in the same run when a later asset is not found", async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.endsWith("/wasm_exec.js")) return okResponse(new Uint8Array([1]));
+      return failResponse(404);
+    });
+
+    await expect(
+      downloadWasmRelease({
+        version: "v0.10.0",
+        repo: "openkakutou/stage",
+        assets: [
+          { name: "wasm_exec.js", localName: "stage-wasm_exec.js" },
+          "stage.wasm",
+        ],
+        outDir,
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({ exitCode: EXIT_CODES.NOT_FOUND });
+
+    expect(await readdir(outDir)).toEqual([]);
+  });
 });
 
 describe("main (CLI wrapper)", () => {
@@ -190,6 +245,50 @@ describe("main (CLI wrapper)", () => {
     expect(stderr.mock.calls.some(([chunk]) => chunk.includes("v99.0.0"))).toBe(
       true,
     );
+    stderr.mockRestore();
+  });
+
+  it("defaults to the character target when only a version is given", async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.includes("openkakutou/character/"))
+        return okResponse(new Uint8Array([1]));
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    const exitCode = await main(["v0.1.0"], { outDir, fetchImpl });
+
+    expect(exitCode).toBe(0);
+    expect(await readdir(outDir)).toEqual(
+      expect.arrayContaining(["character.wasm", "wasm_exec.js"]),
+    );
+  });
+
+  it("downloads the stage target's assets, writing wasm_exec.js as stage-wasm_exec.js", async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.includes("openkakutou/stage/"))
+        return okResponse(new Uint8Array([1]));
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    const exitCode = await main(["stage", "v0.10.0"], { outDir, fetchImpl });
+
+    expect(exitCode).toBe(0);
+    expect((await readdir(outDir)).sort()).toEqual([
+      "stage-wasm_exec.js",
+      "stage.wasm",
+    ]);
+  });
+
+  it("rejects with a usage error for an unknown target", async () => {
+    const stderr = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const fetchImpl = vi.fn();
+
+    const exitCode = await main(["sff", "v0.1.0"], { outDir, fetchImpl });
+
+    expect(exitCode).toBe(EXIT_CODES.USAGE);
+    expect(fetchImpl).not.toHaveBeenCalled();
     stderr.mockRestore();
   });
 });

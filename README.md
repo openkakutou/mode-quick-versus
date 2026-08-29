@@ -6,10 +6,10 @@ The first complete, standalone, playable [OpenKakutou](https://github.com/openka
 This project is in early-stage development. Available now:
 
 - Character roster discovery and selection: each player picks their character independently from the available roster, including picking the same character as their opponent. A character that fails to load is shown with a clear error instead of breaking the screen.
+- Stage selection: once both players have picked a character, they choose one shared stage to fight on from the available stage list. A stage that fails to load is shown with a clear error instead of breaking the screen.
 
 Planned:
 
-- Stage selection screen
 - Match setup (round count, time limit)
 - In-match HUD: lifebar, power bar, and round display driven by live `engine` match state
 - Match rendering: character sprites and stage composition driven by `engine`'s live state
@@ -42,6 +42,12 @@ Download a specific version of the `character` library's WebAssembly build (need
 
 ```sh
 npm run wasm:download -- v0.7.0
+```
+
+Download a specific version of the `stage` library's WebAssembly build (needed to load a stage):
+
+```sh
+npm run wasm:download:stage -- v0.10.0
 ```
 <!-- vibe:end:install -->
 
