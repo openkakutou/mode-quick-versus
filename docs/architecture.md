@@ -18,7 +18,8 @@
 - **`src/selection/`** — one rendering module per screen:
   - `roster-screen.ts` renders the roster grid and the two independent Player 1 / Player 2 selection controls, gating a "Continue" action on both players having picked.
   - `stage-screen.ts` renders the stage grid as a single-choice `role="radiogroup"`, since (unlike character selection) both players share one stage — picking a new stage deselects the previous one, and Continue is gated on exactly one stage being chosen.
-- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell, then chains manifest fetch → discovery → selection screen for the character roster, followed by the same pipeline for the stage list once both players have picked, and shows the confirmed picks (both players' characters and the chosen stage) once the whole flow completes.
+- **`src/setup/`** — `setup-screen.ts` renders the match setup screen once a stage is chosen: two independent `role="radiogroup"` sections, one for round count and one for time limit, each with its own heading wired via `aria-labelledby` so the two groups stay unambiguous. Continue is gated on both groups having a selection, checked independently, so switching one never resets the other. "Unlimited" is a first-class tagged value in the same option type as the numeric second values, never a numeric sentinel. A misconfigured option set (an even round count, a non-positive time limit) renders a blocking, named error state instead of a default/fallback selection — see `.vibe/decisions/003-match-setup-screen-design.md`.
+- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell, then chains manifest fetch → discovery → selection screen for the character roster, followed by the same pipeline for the stage list once both players have picked, then the match setup screen once a stage is chosen, and shows the confirmed picks (both players' characters, the chosen stage, and the configured rounds/time limit) once the whole flow completes.
 
 ## Data flow
 
@@ -34,7 +35,8 @@ flowchart LR
     stageWasmBridge["wasm/stage-bridge.ts\nloadStage"] --> stageDiscover
     stageWasm["stage.wasm"] --> stageWasmBridge
     stageDiscover --> stageScreen["selection/stage-screen.ts\nrenderStageScreen"]
-    stageScreen -->|"onContinue(stageId)"| main["main.ts confirmation"]
+    stageScreen -->|"onContinue(stageId)"| setupScreen["setup/setup-screen.ts\nrenderSetupScreen"]
+    setupScreen -->|"onContinue(config)"| main["main.ts confirmation"]
 ```
 
 Every external effect (`fetch`, the WASM instantiation) is injected as a parameter with a real default — `wasm/bridge.ts`'s and `wasm/stage-bridge.ts`'s own `fetchWasmExecSource`/`fetchWasmBytes`, `roster/manifest.ts`'s and `stage/manifest.ts`'s `fetchManifestSource`, `roster/discovery.ts`'s and `stage/discovery.ts`'s `fetchBytes`/loader — so every layer is testable under Vitest/jsdom without a running dev server, and `main.ts`'s own tests inject fake `loadCharacter`/`loadStage` to test its wiring without touching either real WASM module.

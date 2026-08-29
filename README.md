@@ -7,10 +7,10 @@ This project is in early-stage development. Available now:
 
 - Character roster discovery and selection: each player picks their character independently from the available roster, including picking the same character as their opponent. A character that fails to load is shown with a clear error instead of breaking the screen.
 - Stage selection: once both players have picked a character, they choose one shared stage to fight on from the available stage list. A stage that fails to load is shown with a clear error instead of breaking the screen.
+- Match setup: once a stage is chosen, players pick the round count (1, 3, or 5) and the per-round time limit (60s, 99s, or unlimited) before the match starts. Both choices are required to continue, and changing one never resets the other.
 
 Planned:
 
-- Match setup (round count, time limit)
 - In-match HUD: lifebar, power bar, and round display driven by live `engine` match state
 - Match rendering: character sprites and stage composition driven by `engine`'s live state
 - Keyboard and gamepad input handling routed into `engine`

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The match setup screen: after picking characters and a stage, players choose the round count (1, 3, or 5 rounds) and the per-round time limit (60s, 99s, or unlimited) before starting the match. Both choices are required before continuing, and switching one choice never resets the other.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

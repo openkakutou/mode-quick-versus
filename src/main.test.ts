@@ -156,7 +156,7 @@ describe("renderApp", () => {
     });
   });
 
-  it("shows a confirmation naming both players' picks and the chosen stage once the stage screen's Continue is activated", async () => {
+  it("renders the match setup screen once the stage screen's Continue is activated", async () => {
     const root = document.createElement("div");
 
     const main = await renderAndPickCharacters(root);
@@ -166,8 +166,28 @@ describe("renderApp", () => {
     ).find((el) => el.textContent === "Continue") as HTMLElement;
     stageContinueEl.click();
 
+    expect(main.textContent).toContain("Match Setup");
+  });
+
+  it("shows a confirmation naming both players' picks, the chosen stage, and the configured rounds/time limit once match setup's Continue is activated", async () => {
+    const root = document.createElement("div");
+
+    const main = await renderAndPickCharacters(root);
+    main.querySelector<HTMLElement>(".stage-screen__select")?.click();
+    const stageContinueEl = Array.from(
+      main.querySelectorAll("wuik-button"),
+    ).find((el) => el.textContent === "Continue") as HTMLElement;
+    stageContinueEl.click();
+
+    main.querySelector<HTMLElement>('[data-value="3"]')?.click();
+    main.querySelector<HTMLElement>('[data-label="Unlimited"]')?.click();
+    const setupContinueEl = Array.from(
+      main.querySelectorAll("wuik-button"),
+    ).find((el) => el.textContent === "Continue") as HTMLElement;
+    setupContinueEl.click();
+
     expect(main.textContent).toContain(
-      "Player 1: ryu — Player 2: ryu — Stage: training-room",
+      "Player 1: ryu — Player 2: ryu — Stage: training-room — Rounds: 3 — Time limit: Unlimited",
     );
   });
 

@@ -7,6 +7,10 @@ import {
 } from "./roster/manifest.ts";
 import { renderRosterScreen } from "./selection/roster-screen.ts";
 import { renderStageScreen } from "./selection/stage-screen.ts";
+import {
+  type MatchSetupConfig,
+  renderSetupScreen,
+} from "./setup/setup-screen.ts";
 import { discoverStages } from "./stage/discovery.ts";
 import {
   type FetchStageManifestOptions,
@@ -162,10 +166,35 @@ async function showStageSelection(
   main.replaceChildren();
   renderStageScreen(main, discoveredStages, {
     onContinue: (stageId) => {
+      showMatchSetup(main, player1Id, player2Id, stageId);
+    },
+  });
+}
+
+/**
+ * Renders the match setup screen (backlog item 003) in `main`, replacing
+ * the stage selection screen. The in-match HUD/rendering/input this screen
+ * would normally hand off to isn't built yet, so Continue degrades to a
+ * confirmation message carrying every choice made so far — same "coming
+ * soon" handling this repo already uses at the previous screen boundary.
+ */
+function showMatchSetup(
+  main: HTMLElement,
+  player1Id: string,
+  player2Id: string,
+  stageId: string,
+): void {
+  main.replaceChildren();
+  renderSetupScreen(main, {
+    onContinue: (config: MatchSetupConfig) => {
       main.replaceChildren();
       const confirmation = document.createElement("p");
       confirmation.className = "app-status";
-      confirmation.textContent = `Player 1: ${player1Id} — Player 2: ${player2Id} — Stage: ${stageId}. Match setup is coming soon.`;
+      const timeLimitLabel =
+        config.timeLimit === "unlimited"
+          ? "Unlimited"
+          : `${config.timeLimit.seconds}s`;
+      confirmation.textContent = `Player 1: ${player1Id} — Player 2: ${player2Id} — Stage: ${stageId} — Rounds: ${config.rounds} — Time limit: ${timeLimitLabel}. The match is coming soon.`;
       main.appendChild(confirmation);
     },
   });

@@ -3,11 +3,12 @@
 # mode-quick-versus — Codebase index
 
 ## Modules
-- [`modules/app.md`](modules/app.md) — composition root, builds the app shell and chains the character then stage selection screens
+- [`modules/app.md`](modules/app.md) — composition root, builds the app shell and chains the character, stage, then setup screens
 - [`modules/wasm.md`](modules/wasm.md) — one bridge per WASM dependency (`character`, `stage`), each a typed loader never throwing
 - [`modules/roster.md`](modules/roster.md) — roster manifest fetch/validation and per-entry discovery via the character WASM bridge
 - [`modules/stage.md`](modules/stage.md) — stage manifest fetch/validation and per-entry discovery via the stage WASM bridge
 - [`modules/selection.md`](modules/selection.md) — the roster grid (independent Player 1 / Player 2 picks) and the stage grid (single shared choice)
+- [`modules/setup.md`](modules/setup.md) — the match setup screen: independent round-count and time-limit radiogroups, gating Continue on both
 - [`modules/scripts.md`](modules/scripts.md) — dev-tooling scripts, e.g. downloading a WASM dependency's release build (`character` or `stage` target)
 
 ## Observed patterns
@@ -21,6 +22,8 @@
 - A result that can fail in an expected way (a WASM load, a manifest fetch, a file fetch) returns a discriminated-union/typed result instead of throwing, so a UI layer can show a clear error state instead of crashing
 - One bridge file per WASM dependency rather than a shared/generalized loader — each is an independently released, independently versioned Go program; `wasm/stage-bridge.ts` even keeps its own `wasm_exec.js` on disk (`stage-wasm_exec.js`) rather than reusing `character`'s copy, so the two can never silently drift out of pairing
 - A single-choice grid (one shared pick, e.g. the stage screen) uses `role="radiogroup"`/`role="radio"`/`aria-checked` and never toggles back to "no selection" on a re-click; an independent-pick grid (one pick per player, e.g. the roster screen) uses plain toggle buttons with `aria-pressed`, since either player's slot can legitimately be empty
+- A screen with two independent radiogroups (the setup screen) gives each its own heading wired via `aria-labelledby`, and gates its Continue action on both groups independently rather than a single combined flag
+- A screen whose *configured option set itself* can be invalid (not a player input, a deployment/config error) validates it at render time and shows a blocking, named error state instead of falling back to a default selection — distinct from the existing empty-list/empty-roster message, which is a valid "nothing configured" state rather than an error
 
 ## Other context files
 - [`models.md`](models.md) — data models

@@ -43,6 +43,20 @@ Defined in: `src/stage/manifest.ts`
 | message | string | Present only when `status: "error"` — why the stage failed to load |
 Defined in: `src/stage/discovery.ts`
 
+## MatchSetupConfig
+| Field | Type | Notes |
+|---|---|---|
+| rounds | number | The chosen round count, a positive odd integer |
+| timeLimit | `TimeLimitOption` | The chosen per-round time limit |
+Defined in: `src/setup/setup-screen.ts`
+
+## TimeLimitOption
+| Field | Type | Notes |
+|---|---|---|
+| seconds | number | A fixed duration in seconds (positive integer) |
+| (or) | `"unlimited"` | The literal tag — no timer at all, never a numeric sentinel |
+Defined in: `src/setup/setup-screen.ts`
+
 ## StageSummary / StageResult
 | Field | Type | Notes |
 |---|---|---|

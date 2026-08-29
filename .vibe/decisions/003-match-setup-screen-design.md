@@ -1,0 +1,16 @@
+---
+date: 2026-08-29
+status: accepted
+---
+# Match setup screen reuses the radiogroup-button idiom, twice, with "Unlimited" as a first-class time value
+
+**Context:** Backlog item 003 needs a screen where the two local players jointly configure round count and per-round time limit (including "unlimited") before a match starts. `web-ui-kit` has no generic select/dropdown/number-input component (see `character-editor`'s own backlog item 013 noting the same gap org-wide), and this app already has one established pattern for a single shared choice: the stage screen's `role="radiogroup"` grid of toggle buttons (`.vibe/decisions/002`).
+
+**Decision:** The setup screen renders two independent `role="radiogroup"` sections — one for round count, one for time limit — each its own instance of the same toggle-button idiom as the stage screen (mutually exclusive selection, re-selecting the current choice is a no-op, `aria-checked` mirrors state), each with its own visible heading wired via `aria-labelledby` so two adjacent radiogroups stay unambiguous to assistive tech and sighted users alike. Continue is gated on both groups having a selection, checked independently per group. "Unlimited" is modeled as a first-class member of the same time-limit option type as the numeric second values (a tagged value, not `null`/`0`/`-1`), so it can never be silently coerced to a number downstream. Each configured option set (round counts, time limits) is defensively validated at render time — a round count must be a positive odd integer, a time limit must be a positive integer of seconds or the "unlimited" tag — and an invalid configured option renders a blocking, named error state instead of a default/fallback selection.
+
+**Reason:** Reusing the exact idiom already proven by the stage screen keeps the app's interaction vocabulary at one shared pattern for "one shared choice from a fixed set" rather than introducing a second, competing one for no functional gain — consistent with this repo's existing choice not to build a `web-ui-kit` form-input component this item doesn't need. Two labelled radiogroups (rather than one ARIA attribute doing invisible work) was flagged by UX consultation as necessary once two such groups sit on the same screen, unlike the single-group stage screen. Modeling "unlimited" as a tagged value rather than a numeric sentinel avoids a class of bug where a downstream consumer treats it as a real duration.
+
+**Rejected alternatives:**
+- *A native `<select>` dropdown for each field* — rejected: breaks from the app's established toggle-button/radiogroup visual language for no accessibility or usability gain at this option-set size (3–4 choices each).
+- *Numeric sentinel for "unlimited" (e.g. `0` or `-1` seconds)* — rejected: silently coercible to a real duration by a careless downstream consumer (HUD/timer code, not yet built) — an explicit tagged value fails loudly instead.
+- *Custom roving-tabindex arrow-key navigation within each radiogroup* — rejected for this item: no existing radiogroup in this app (stage screen) implements true ARIA-pattern keyboard roving either; adding it here alone would be an inconsistent, unscoped enhancement rather than matching the established convention. Left as a pre-existing, app-wide limitation, not fixed piecemeal.
