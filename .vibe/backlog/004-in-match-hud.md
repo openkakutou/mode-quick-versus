@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 depends_on: [003]
 ---
 # In-Match HUD
@@ -19,3 +19,6 @@ Cross-repo blocker: needs `engine` item 001 (match state model) to exist and exp
 
 ## Blocked
 2026-08-30: `engine` item 001 (match state model) is done, but that alone doesn't give this app anything to consume from the browser. `engine`'s own WASM entrypoint (its backlog item `009`, "Round/Match Flow, WASM Entrypoint, Integration Tests") is still `status: todo`, and `engine`'s current tree has no `cmd/wasm` at all (only the `version.go` module skeleton plus internal Go packages) — there is no built or buildable WASM module exposing live match state yet. This item's own Notes under-specified the real cross-repo prerequisite (named item 001, but the actual gate is the WASM entrypoint, item 009). Re-run once `engine#009` ships.
+
+## Unblocked
+2026-08-30: `engine#009` shipped and published as `engine` `v0.8.0` (tag pushed, GitHub release created) — the `OpenKakutouEngine` WASM module now exposes `newMatch`/`tick`/`resetRound`, including live per-fighter health and round/match progress. Back to `status: todo`.
