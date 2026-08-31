@@ -1,5 +1,5 @@
 ---
-status: todo
+status: blocked
 depends_on: [003]
 ---
 # Match Rendering
@@ -15,3 +15,8 @@ Render the actual match scene — both characters' sprites (via the `character` 
 
 ## Notes
 Cross-repo blocker: needs the `character`, `stage`, and `sff` WASM builds to expose actual pixel/sprite data (not just metadata) and needs `engine` to expose live per-character position/animation state.
+
+Re-checked 2026-08-31: the pixel-data half is resolved — `character`'s `resolveSprites` (item 034) and `stage`'s `resolveSprites` (item 010) both expose decoded pixel buffers via WASM, and `engine`'s WASM entrypoint (item 009) exists and returns live per-fighter `Position`/`Facing`/`StateNo`. The animation half is not: `tick`'s response never exposes the resolved animation number or frame timing (`FighterRuntime.Context.Anim`/`AnimTime` stay Go-side by design, see `engine`'s `.vibe/decisions/011`), and `StateNo` alone cannot substitute for it (a state's `Anim` can differ from its number via `changeanim`). Tracked as `engine` backlog item `017`.
+
+## Blocked
+2026-08-31: `engine`'s WASM `tick`/`newMatch`/`resetRound` responses expose fighter position/state number but not the resolved animation number or frame timing, so this item cannot pick the correct sprite/frame per fighter yet. Filed as `engine` backlog item `017` (Expose Current Animation Number And Frame Timing Via WASM). Re-run `/vibe:feature 005` once that item is done and published (tagged release).
