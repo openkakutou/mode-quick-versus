@@ -41,13 +41,13 @@ npm update
 Download a specific version of the `character` library's WebAssembly build (needed to load a character):
 
 ```sh
-npm run wasm:download -- v0.7.0
+npm run wasm:download -- v0.7.1
 ```
 
 Download a specific version of the `stage` library's WebAssembly build (needed to load a stage):
 
 ```sh
-npm run wasm:download:stage -- v0.10.0
+npm run wasm:download:stage -- v0.11.1
 ```
 <!-- vibe:end:install -->
 
