@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-07
+
 ### Added
 
 - Player input: both players' actions during a match are now read live and actually drive it. Each player has their own default keyboard controls (Player 1: WASD + F/G/H/R/T/Y, Player 2: arrow keys + J/K/L/I/O/P), shown on the match setup screen's new Controls section. A connected gamepad is detected and used automatically for whichever player it's assigned to, without requiring one to be present; if it disconnects mid-match, that player falls back to their keyboard controls, shown live via an in-match status line. Each character's own command file is now read and used, so recognized moves actually resolve during a match.
@@ -35,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.2.0...v0.3.0
