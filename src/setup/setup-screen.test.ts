@@ -1,6 +1,6 @@
 import "@openkakutou/web-ui-kit";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderSetupScreen } from "./setup-screen.ts";
+import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import { type MatchSetupConfig, renderSetupScreen } from "./setup-screen.ts";
 
 function roundButton(root: HTMLElement, value: number): HTMLElement {
   const button = root.querySelector<HTMLElement>(
@@ -25,11 +25,11 @@ function continueButton(root: HTMLElement): HTMLElement {
 }
 
 let root: HTMLElement;
-let onContinue: ReturnType<typeof vi.fn>;
+let onContinue: Mock<(config: MatchSetupConfig) => void>;
 
 beforeEach(() => {
   root = document.createElement("div");
-  onContinue = vi.fn();
+  onContinue = vi.fn<(config: MatchSetupConfig) => void>();
 });
 
 describe("renderSetupScreen", () => {
@@ -181,7 +181,7 @@ describe("renderSetupScreen", () => {
     it("never assigns the same physical key to both players", () => {
       renderSetupScreen(root, { onContinue });
 
-      const [p1, p2] = root.querySelectorAll(".setup-screen__controls-player");
+      const [p1] = root.querySelectorAll(".setup-screen__controls-player");
       const p1Keys = p1.textContent ?? "";
       // A crude but sufficient check for this fixed default set: none of
       // player 2's own bound keys appear verbatim in player 1's listing.

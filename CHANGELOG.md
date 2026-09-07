@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the production build failing at its type-checking step because of a test file's overly loose callback typing, unrelated to any actual app behavior.
+
 ## [0.6.0] - 2026-09-07
 
 ### Added
