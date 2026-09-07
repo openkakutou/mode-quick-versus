@@ -20,6 +20,10 @@ _Sources: `src/setup/setup-screen.ts`_
 The per-round countdown the players configure on the match setup screen, either a fixed number of seconds or "unlimited" (no timer for that round). Modeled as a distinct value from a plain duration so it can never be silently treated as a real number of seconds downstream.
 _Sources: `src/setup/setup-screen.ts`_
 
+## Input source
+Which device is currently driving one player's actions during a match: their keyboard, or a gamepad assigned to them. Each player has exactly one active input source at a time — a connected, assigned gamepad takes over from keyboard automatically, and falls back to keyboard the moment it disconnects. Shown live during a match ("Player 1: Keyboard · Player 2: Gamepad") and, as default keyboard bindings, on the match setup screen's Controls section.
+_Sources: `src/input/tick-input-source.ts`, `src/setup/setup-screen.ts`_
+
 ## Placeholder sprite
 The fixed visual fallback drawn in place of a fighter's or a stage layer's sprite whenever its reference fails to resolve against the loaded sheet — one shared visual treatment, shown instead of a crash or a blank gap. Distinct from a sprite reference that legitimately draws nothing (a blank `.air` frame, or a stage `"anim"` element with no matching animation block), which is not an error and gets no placeholder at all.
 _Sources: `src/rendering/scene-composition.ts`_

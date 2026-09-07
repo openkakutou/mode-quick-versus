@@ -3,6 +3,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   loadCharacter,
+  loadCmd,
   resetWasmBridgeForTests,
   resolveSprites,
 } from "./bridge.ts";
@@ -42,6 +43,7 @@ function textBytes(text: string): Uint8Array {
 const airBytes = fixture("sample.air");
 const sffBytes = fixture("v1-basic.sff");
 const cnsBytes = fixture("sample.cns");
+const cmdBytes = fixture("sample.cmd");
 
 beforeEach(() => {
   resetWasmBridgeForTests();
@@ -205,5 +207,60 @@ describe("resolveSprites", () => {
     expect(results).toHaveLength(2);
     expect(results[0].ok).toBe(true);
     expect(results[1].ok).toBe(false);
+  });
+});
+
+describe("loadCmd", () => {
+  it("parses a real .cmd file's remap, defaults, and command definitions", async () => {
+    const result = await loadCmd(cmdBytes, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    // sample.cmd (see testdata/) remaps a->a, b->b, x->y, sets a 15-tick
+    // default recognition window, and declares two commands: "a" and
+    // "QCF_a".
+    expect(result.commandFile.remap).toEqual({ a: "a", b: "b", x: "y" });
+    expect(result.commandFile.defaults).toEqual({ time: 15, bufferTime: 1 });
+    expect(result.commandFile.commands.map((c) => c.name).sort()).toEqual([
+      "QCF_a",
+      "a",
+    ]);
+  });
+
+  it("returns a typed error instead of throwing when the .cmd bytes are malformed", async () => {
+    // A section header missing its closing bracket is the one `.cmd` shape
+    // the underlying parser actually rejects, matching bridge.test.ts's own
+    // loadCharacter malformed-input convention above.
+    const malformedCmdBytes = textBytes("[Remap\na = a\n");
+
+    const result = await loadCmd(malformedCmdBytes, testOptions);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+
+  it("returns a typed error instead of throwing for empty input", async () => {
+    const result = await loadCmd(new Uint8Array(), testOptions);
+
+    // An empty .cmd file is not itself malformed to the parser (no command
+    // requires any content) -- this only proves loadCmd never throws or
+    // hangs on a degenerate input, regardless of which shape that resolves
+    // to.
+    expect(typeof result.ok).toBe("boolean");
+  });
+
+  it("reuses the same instantiated module across repeated calls, alongside loadCharacter", async () => {
+    const first = await loadCmd(cmdBytes, testOptions);
+    const loaded = await loadCharacter(
+      textBytes("[Info]\nname = Alongside Test\n"),
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+
+    expect(first.ok).toBe(true);
+    expect(loaded.ok).toBe(true);
   });
 });

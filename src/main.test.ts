@@ -14,6 +14,7 @@ const manifestSource = JSON.stringify([
       air: "roster/ryu/character.air",
       sff: "roster/ryu/character.sff",
       cns: "roster/ryu/character.cns",
+      cmd: "roster/ryu/character.cmd",
     },
   },
 ]);
@@ -245,6 +246,64 @@ describe("renderApp", () => {
     expect(input.config).toEqual({
       rounds: 3,
       timeLimit: "unlimited",
+    });
+    // No loadCmd override supplied: the real bridge's own loadCmd rejects
+    // under jsdom (no WASM stub configured for this test), so both players
+    // degrade to the empty command file fallback rather than blocking the
+    // match or throwing.
+    expect(input.player1.commands).toEqual({
+      remap: {},
+      defaults: { time: 0, bufferTime: 0 },
+      commands: [],
+      states: [],
+    });
+    expect(input.player2.commands).toEqual({
+      remap: {},
+      defaults: { time: 0, bufferTime: 0 },
+      commands: [],
+      states: [],
+    });
+  });
+
+  it("threads each player's own parsed command file into match rendering when loadCmd succeeds", async () => {
+    const root = document.createElement("div");
+    const p1Commands = {
+      remap: { a: "a" },
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "p1", input: "a", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+
+    const { renderMatch } = await renderAndStartMatch(root, {
+      loadCmd: vi.fn(async () => ({
+        ok: true as const,
+        commandFile: p1Commands,
+      })),
+    });
+
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.player1.commands).toEqual(p1Commands);
+    expect(input.player2.commands).toEqual(p1Commands);
+  });
+
+  it("still starts the match, degrading to no recognized commands, when a fighter's .cmd file fails to load", async () => {
+    const root = document.createElement("div");
+
+    const { main, renderMatch } = await renderAndStartMatch(root, {
+      loadCmd: vi.fn(async () => ({
+        ok: false as const,
+        error: "corrupt .cmd file",
+      })),
+    });
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    expect(main.textContent).not.toContain("corrupt .cmd file");
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.player1.commands).toEqual({
+      remap: {},
+      defaults: { time: 0, bufferTime: 0 },
+      commands: [],
+      states: [],
     });
   });
 

@@ -12,6 +12,7 @@ function entry(id: string): RosterManifestEntry {
       air: `roster/${id}/character.air`,
       sff: `roster/${id}/character.sff`,
       cns: `roster/${id}/character.cns`,
+      cmd: `roster/${id}/character.cmd`,
     },
   };
 }

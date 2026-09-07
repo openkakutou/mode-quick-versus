@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { TickInputPair } from "../input/tick-input-source.ts";
 import type {
   NewMatchResponseData,
   TickResponseData,
@@ -7,7 +8,10 @@ import type { EngineResult } from "../wasm/engine-types.ts";
 import type { StageSummary } from "../wasm/stage-types.ts";
 import type { CharacterSummary } from "../wasm/types.ts";
 import { renderMatch } from "./match-renderer.ts";
-import type { MatchRendererOptions } from "./match-renderer.ts";
+import type {
+  MatchRendererInput,
+  MatchRendererOptions,
+} from "./match-renderer.ts";
 import type { DrawCommand } from "./scene-composition.ts";
 
 function character(): CharacterSummary {
@@ -128,7 +132,7 @@ function tickResponse(): EngineResult<TickResponseData> {
   };
 }
 
-function baseInput() {
+function baseInput(): MatchRendererInput {
   return {
     player1: { character: character(), sffBytes: new Uint8Array([1]) },
     player2: { character: character(), sffBytes: new Uint8Array([2]) },
@@ -290,5 +294,145 @@ describe("renderMatch", () => {
     await renderMatch(root, baseInput(), second);
 
     expect(first.cancelAnimationFrame).toHaveBeenCalled();
+  });
+
+  it("threads each player's own supplied command file into the newMatch request, never swapped between them", async () => {
+    const root = document.createElement("div");
+    const options = baseOptions();
+    const p1Commands = {
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "p1-only", input: "a", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+    const p2Commands = {
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "p2-only", input: "b", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+    const input = baseInput();
+    input.player1.commands = p1Commands;
+    input.player2.commands = p2Commands;
+
+    await renderMatch(root, input, options);
+
+    const request = (options.newMatch as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(request.programs[0].commands).toEqual(p1Commands);
+    expect(request.programs[1].commands).toEqual(p2Commands);
+  });
+
+  function fakeInputSource(inputs: TickInputPair) {
+    return {
+      read: vi.fn(() => inputs),
+      dispose: vi.fn(),
+    };
+  }
+
+  it("reads live input once per frame and threads it into every tick() call run that frame, even across a multi-tick catch-up burst", async () => {
+    const root = document.createElement("div");
+    let currentTime = 0;
+    const inputs: TickInputPair = [
+      {
+        up: true,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: true, b: false, c: false, x: false, y: false, z: false },
+      },
+      {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: false, b: false, c: false, x: false, y: false, z: false },
+      },
+    ];
+    const inputSource = fakeInputSource(inputs);
+    const options = baseOptions({
+      now: vi.fn(() => currentTime),
+      createInputSource: vi.fn(() => inputSource),
+    });
+
+    await renderMatch(root, baseInput(), options);
+    // 3 full tick intervals elapsed at once -> a multi-tick catch-up burst.
+    currentTime = (1000 / 60) * 3 + 1;
+    options.rafCallbacks[0](currentTime);
+    await vi.waitFor(() => {
+      expect(options.tick).toHaveBeenCalledTimes(3);
+    });
+
+    expect(inputSource.read).toHaveBeenCalledTimes(1);
+    for (const call of (options.tick as ReturnType<typeof vi.fn>).mock.calls) {
+      expect(call[0].inputs).toBe(inputs);
+    }
+  });
+
+  it("disposes the input source when stop() is called", async () => {
+    const root = document.createElement("div");
+    const inputSource = fakeInputSource([
+      {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: false, b: false, c: false, x: false, y: false, z: false },
+      },
+      {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: false, b: false, c: false, x: false, y: false, z: false },
+      },
+    ]);
+    const options = baseOptions({
+      createInputSource: vi.fn(() => inputSource),
+    });
+
+    const handle = await renderMatch(root, baseInput(), options);
+    handle.stop();
+
+    expect(inputSource.dispose).toHaveBeenCalled();
+  });
+
+  it("shows a live status line reflecting each player's active input source, updating when a source changes", async () => {
+    const root = document.createElement("div");
+    let onSourceChange:
+      | ((playerIndex: 0 | 1, source: "keyboard" | "gamepad") => void)
+      | undefined;
+    const inputSource = fakeInputSource([
+      {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: false, b: false, c: false, x: false, y: false, z: false },
+      },
+      {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        buttons: { a: false, b: false, c: false, x: false, y: false, z: false },
+      },
+    ]);
+    const options = baseOptions({
+      createInputSource: vi.fn((onChange) => {
+        onSourceChange = onChange;
+        return inputSource;
+      }),
+    });
+
+    await renderMatch(root, baseInput(), options);
+
+    const status = root.querySelector(".match-renderer__input-status");
+    expect(status).not.toBeNull();
+    expect(status?.textContent).toContain("Keyboard");
+
+    onSourceChange?.(0, "gamepad");
+
+    expect(status?.textContent).toContain("Gamepad");
   });
 });

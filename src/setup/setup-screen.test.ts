@@ -150,4 +150,56 @@ describe("renderSetupScreen", () => {
     expect(root.textContent).toContain("0");
     expect(onContinue).not.toHaveBeenCalled();
   });
+
+  describe("Controls section", () => {
+    it("shows each player's own default direction and button keys, clearly attributed to that player", () => {
+      renderSetupScreen(root, { onContinue });
+
+      const sections = root.querySelectorAll(".setup-screen__controls-player");
+      expect(sections).toHaveLength(2);
+      // Player 1 defaults to WASD.
+      expect(sections[0].textContent).toContain("W");
+      expect(sections[0].textContent).toContain("A");
+      expect(sections[0].textContent).toContain("S");
+      expect(sections[0].textContent).toContain("D");
+      // Player 2 defaults to the arrow keys.
+      expect(sections[1].textContent).toContain("Arrow Up");
+      expect(sections[1].textContent).toContain("Arrow Left");
+    });
+
+    it("lists all six button names for each player", () => {
+      renderSetupScreen(root, { onContinue });
+
+      const sections = root.querySelectorAll(".setup-screen__controls-player");
+      for (const section of sections) {
+        for (const name of ["a", "b", "c", "x", "y", "z"]) {
+          expect(section.textContent?.toLowerCase()).toContain(name);
+        }
+      }
+    });
+
+    it("never assigns the same physical key to both players", () => {
+      renderSetupScreen(root, { onContinue });
+
+      const [p1, p2] = root.querySelectorAll(".setup-screen__controls-player");
+      const p1Keys = p1.textContent ?? "";
+      // A crude but sufficient check for this fixed default set: none of
+      // player 2's own bound keys appear verbatim in player 1's listing.
+      expect(p1Keys).not.toContain("Arrow");
+    });
+
+    it("mentions gamepad support and its keyboard fallback", () => {
+      renderSetupScreen(root, { onContinue });
+
+      const controls = root.querySelector(".setup-screen__controls");
+      expect(controls?.textContent?.toLowerCase()).toContain("gamepad");
+      expect(controls?.textContent?.toLowerCase()).toContain("keyboard");
+    });
+
+    it("is not shown on the blocking error state", () => {
+      renderSetupScreen(root, { roundOptions: [1, 2, 5], onContinue });
+
+      expect(root.querySelector(".setup-screen__controls")).toBeNull();
+    });
+  });
 });

@@ -81,7 +81,7 @@ describe("buildFighterProgram", () => {
     expect(Object.keys(program.states)).toEqual(["0"]);
   });
 
-  it("produces an empty command file, since input-command wiring is a separate backlog item", () => {
+  it("falls back to an empty command file when none is supplied", () => {
     const program = buildFighterProgram(character());
 
     expect(program.commands).toEqual({
@@ -90,6 +90,19 @@ describe("buildFighterProgram", () => {
       commands: [],
       states: [],
     });
+  });
+
+  it("uses the supplied parsed command file when provided, instead of the empty fallback", () => {
+    const commands = {
+      remap: { a: "a" },
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "a", input: "a", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+
+    const program = buildFighterProgram(character(), commands);
+
+    expect(program.commands).toBe(commands);
   });
 });
 
@@ -238,5 +251,47 @@ describe("buildNewMatchRequest", () => {
     expect(request.starting[0].side).toBe(0);
     expect(request.starting[1].side).toBe(1);
     expect(request.programs[0].states["0"]).toEqual({ number: 0, type: "S" });
+  });
+
+  it("threads each player's own supplied command file into their own program, never swapped or merged", () => {
+    const p1 = character({ name: "P1" });
+    const p2 = character({ name: "P2" });
+    const p1Commands = {
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "p1-only", input: "a", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+    const p2Commands = {
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "p2-only", input: "b", time: 1, bufferTime: 1 }],
+      states: [],
+    };
+
+    const request = buildNewMatchRequest(
+      p1,
+      p2,
+      stage(),
+      { rounds: 3, timeLimit: { seconds: 60 } },
+      [p1Commands, p2Commands],
+    );
+
+    expect(request.programs[0].commands).toBe(p1Commands);
+    expect(request.programs[1].commands).toBe(p2Commands);
+  });
+
+  it("falls back to an empty command file per player when no commands are supplied at all", () => {
+    const request = buildNewMatchRequest(character(), character(), stage(), {
+      rounds: 3,
+      timeLimit: { seconds: 60 },
+    });
+
+    expect(request.programs[0].commands).toEqual({
+      remap: {},
+      defaults: { time: 0, bufferTime: 0 },
+      commands: [],
+      states: [],
+    });
   });
 });

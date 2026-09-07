@@ -8,7 +8,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadCharacter, resetWasmBridgeForTests } from "../wasm/bridge.ts";
+import {
+  loadCharacter,
+  loadCmd,
+  resetWasmBridgeForTests,
+} from "../wasm/bridge.ts";
 import {
   newMatch,
   resetEngineWasmBridgeForTests,
@@ -53,6 +57,7 @@ const defBytes = textBytes("[Info]\nname = Smoke Test Fighter\n");
 const airBytes = fixture("sample.air");
 const sffBytes = fixture("v1-basic.sff");
 const cnsBytes = fixture("sample.cns");
+const cmdBytes = fixture("sample.cmd");
 
 const noBoundaryStage: StageSummary = {
   name: "Smoke Test Stage",
@@ -121,5 +126,51 @@ describe("buildNewMatchRequest against the real character and engine WASM module
     if (!afterTick.ok)
       throw new Error(`expected an ok result: ${afterTick.error}`);
     expect(afterTick.data.animations[0].animTime).toBe(1);
+  });
+
+  it("starts and ticks a real match with a real, non-empty parsed command file and live button input", async () => {
+    resetWasmBridgeForTests();
+    resetEngineWasmBridgeForTests();
+
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      characterTestOptions,
+    );
+    if (!loaded.ok) throw new Error(`expected an ok load: ${loaded.error}`);
+    const cmd = await loadCmd(cmdBytes, characterTestOptions);
+    if (!cmd.ok) throw new Error(`expected an ok cmd parse: ${cmd.error}`);
+
+    const request = buildNewMatchRequest(
+      loaded.character,
+      loaded.character,
+      noBoundaryStage,
+      { rounds: 3, timeLimit: { seconds: 99 } },
+      [cmd.commandFile, cmd.commandFile],
+    );
+    // Proves `character`'s and `engine`'s independent `cmd.CommandFile` Go
+    // types really do round-trip through this app's JSON boundary, the
+    // same "shared type, no field mapping" precedent this file's top
+    // comment already documents for state defs/animations.
+    expect(request.programs[0].commands).toEqual(cmd.commandFile);
+
+    const created = await newMatch(request, engineTestOptions);
+    expect(created.ok).toBe(true);
+    if (!created.ok) throw new Error(`expected an ok result: ${created.error}`);
+
+    // A real held button, routed as live per-tick input, ticks cleanly
+    // through a real non-empty command file without erroring -- the
+    // meaningful proof at this layer, since TickResponseData never exposes
+    // which commands were actually recognized this tick.
+    const afterTick = await tick(
+      {
+        matchId: created.data.matchId,
+        inputs: [{ buttons: { a: true } }, {}],
+      },
+      engineTestOptions,
+    );
+    expect(afterTick.ok).toBe(true);
   });
 });

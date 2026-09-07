@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Player input: both players' actions during a match are now read live and actually drive it. Each player has their own default keyboard controls (Player 1: WASD + F/G/H/R/T/Y, Player 2: arrow keys + J/K/L/I/O/P), shown on the match setup screen's new Controls section. A connected gamepad is detected and used automatically for whichever player it's assigned to, without requiring one to be present; if it disconnects mid-match, that player falls back to their keyboard controls, shown live via an in-match status line. Each character's own command file is now read and used, so recognized moves actually resolve during a match.
+
 ## [0.5.0] - 2026-09-07
 
 ### Added

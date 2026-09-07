@@ -86,3 +86,40 @@ export type CharacterResult =
 export type SpritePixelResult =
   | { ok: true; pixels: Uint8Array; width: number; height: number }
   | { ok: false; error: string };
+
+/**
+ * One parsed `.cmd` command definition (`cmd.Command`). `input` is the raw
+ * command string (e.g. `"~D, DF, F, a"`) left unevaluated here — same
+ * "unevaluated data" precedent as `StateDefBlob` — since only `engine`'s
+ * own `input` package matches command strings against live per-tick input.
+ */
+export interface CommandDefinition {
+  name: string;
+  input: string;
+  time: number;
+  bufferTime: number;
+}
+
+/**
+ * A parsed `.cmd` file (`cmd.CommandFile`): button remapping, default
+ * recognition-window timings, the command definitions themselves, and any
+ * `Statedef -1`-style always-active states it declares (opaque, forwarded
+ * to `engine` unevaluated — same precedent as `StateDefBlob`).
+ */
+export interface CommandFile {
+  remap: Record<string, string>;
+  defaults: { time: number; bufferTime: number };
+  commands: CommandDefinition[];
+  states: StateDefBlob[];
+  // Index signature: `engine-types.ts`'s `CommandFileBlob` (the shape
+  // `engine`'s own WASM request actually wants) is a plain
+  // `Record<string, unknown>` -- structurally opaque on that side of the
+  // boundary -- so a real, typed `CommandFile` must stay assignable to it
+  // without a cast at the call site (`main.ts`'s `loadFighter`).
+  [key: string]: unknown;
+}
+
+/** Result of the typed `loadCmd` wrapper: exactly one of `commandFile`/`error` is ever meaningful. */
+export type CommandFileResult =
+  | { ok: true; commandFile: CommandFile }
+  | { ok: false; error: string };

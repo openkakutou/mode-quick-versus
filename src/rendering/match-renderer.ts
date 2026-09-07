@@ -1,3 +1,9 @@
+import {
+  type InputSourceKind,
+  type TickInputPair,
+  type TickInputSource,
+  createTickInputSource,
+} from "../input/tick-input-source.ts";
 import { resolveSprites as defaultResolveCharacterSprites } from "../wasm/bridge.ts";
 import {
   closeMatch as defaultCloseMatch,
@@ -5,6 +11,7 @@ import {
   tick as defaultTick,
 } from "../wasm/engine-bridge.ts";
 import type {
+  CommandFileBlob,
   EngineResult,
   Facing,
   FighterAnimState,
@@ -59,6 +66,8 @@ const FALLBACK_CANVAS_HEIGHT = 240;
 export interface MatchRendererCharacterInput {
   character: CharacterSummary;
   sffBytes: Uint8Array;
+  /** This fighter's own already-parsed `.cmd` file (see `main.ts`'s `loadFighter`). Omitted, it falls back to an empty command file — see `match-config.ts`'s `buildFighterProgram`. */
+  commands?: CommandFileBlob;
 }
 
 export interface MatchRendererStageInput {
@@ -113,6 +122,16 @@ export interface MatchRendererOptions {
   cancelAnimationFrame?: (handle: number) => void;
   now?: () => number;
   maxTicksPerFrame?: number;
+  /**
+   * Overrides the live tick input source entirely — bypassing real
+   * keyboard/gamepad wiring, the same rationale every other real-effect
+   * option here follows. `onSourceChange` is threaded through so the
+   * caller's fake can still exercise the input-status indicator. Defaults
+   * to a real `createTickInputSource({ onSourceChange })`.
+   */
+  createInputSource?: (
+    onSourceChange: (playerIndex: 0 | 1, source: InputSourceKind) => void,
+  ) => TickInputSource;
 }
 
 /** A previous call's stop function, per root element, so a new call on the same root cleans up its predecessor's loop before starting its own — mirrors `stage-viewer-web`'s own established convention. */
@@ -138,6 +157,11 @@ function resolveOptions(options: MatchRendererOptions) {
       globalThis.cancelAnimationFrame?.bind(globalThis),
     now: options.now ?? (() => performance.now()),
     maxTicksPerFrame: options.maxTicksPerFrame ?? DEFAULT_MAX_TICKS_PER_FRAME,
+    createInputSource:
+      options.createInputSource ??
+      ((
+        onSourceChange: (playerIndex: 0 | 1, source: InputSourceKind) => void,
+      ) => createTickInputSource({ onSourceChange })),
   };
 }
 
@@ -170,6 +194,7 @@ export async function renderMatch(
     input.player2.character,
     input.stage.stage,
     input.config,
+    [input.player1.commands, input.player2.commands],
   );
 
   const created = await deps.newMatch(request);
@@ -343,7 +368,31 @@ export async function renderMatch(
   );
 
   status.remove();
-  root.append(canvas, liveRegion);
+
+  const inputStatus = document.createElement("p");
+  inputStatus.className = "match-renderer__input-status";
+  inputStatus.setAttribute("aria-live", "polite");
+  // A player's input source (keyboard vs. their assigned gamepad) is a
+  // real, mid-match-changeable fact -- a disconnected/reconnected gamepad
+  // falls that player back to keyboard, or picks it back up -- so this
+  // gets its own visible, announced status line separate from the
+  // one-shot "Match started" announcement in `liveRegion` above.
+  const activeSources: [InputSourceKind, InputSourceKind] = [
+    "keyboard",
+    "keyboard",
+  ];
+  function renderInputStatus(): void {
+    const label = (source: InputSourceKind) =>
+      source === "gamepad" ? "Gamepad" : "Keyboard";
+    inputStatus.textContent = `Player 1: ${label(activeSources[0])} · Player 2: ${label(activeSources[1])}`;
+  }
+  const inputSource = deps.createInputSource((playerIndex, source) => {
+    activeSources[playerIndex] = source;
+    renderInputStatus();
+  });
+  renderInputStatus();
+
+  root.append(canvas, liveRegion, inputStatus);
   canvas.focus();
   liveRegion.textContent = "Match started";
 
@@ -363,6 +412,7 @@ export async function renderMatch(
     if (stopped) return;
     stopped = true;
     if (rafHandle !== null) deps.cancelAnimationFrame(rafHandle);
+    inputSource.dispose();
     deps.closeMatch(matchId).catch(() => {
       // A failure to release the session is not user-visible — the
       // session simply stays resident for the life of the WASM instance,
@@ -371,12 +421,15 @@ export async function renderMatch(
     });
   }
 
-  async function runTicks(count: number): Promise<boolean> {
+  async function runTicks(
+    count: number,
+    inputs: TickInputPair,
+  ): Promise<boolean> {
     for (let i = 0; i < count; i++) {
       if (stopped) return false;
       const result: EngineResult<TickResponseData> = await deps.tick({
         matchId,
-        inputs: [{}, {}],
+        inputs,
       });
       if (!result.ok) {
         status.textContent = `Match rendering stopped: ${result.error}`;
@@ -406,7 +459,11 @@ export async function renderMatch(
     accumulatorMs = remainderMs;
 
     if (ticksToRun > 0) {
-      const ok = await runTicks(ticksToRun);
+      // Read once per rendered frame, not once per tick: this same
+      // snapshot is reused for every tick in this frame's catch-up burst —
+      // see `.vibe/decisions/005-input-routing-design.md`.
+      const inputs = inputSource.read();
+      const ok = await runTicks(ticksToRun, inputs);
       if (!ok) return;
       const frames = await resolveFighterSprites(latestAnimations);
       await resolveStageSprites();

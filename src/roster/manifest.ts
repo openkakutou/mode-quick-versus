@@ -13,6 +13,8 @@ export interface RosterManifestEntry {
     air: string;
     sff: string;
     cns: string;
+    /** The character's `.cmd` (input command) file path, parsed at match start so routed input (backlog item 006) can resolve to recognized commands. */
+    cmd: string;
   };
   portrait: string;
 }
@@ -50,7 +52,8 @@ function isValidEntry(value: unknown): value is RosterManifestEntry {
     typeof f.def === "string" &&
     typeof f.air === "string" &&
     typeof f.sff === "string" &&
-    typeof f.cns === "string"
+    typeof f.cns === "string" &&
+    typeof f.cmd === "string"
   );
 }
 

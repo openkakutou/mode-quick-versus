@@ -4,7 +4,7 @@
 | Field | Type | Notes |
 |---|---|---|
 | id | string | Stable identifier for the character |
-| files.def / files.air / files.sff / files.cns | string | Fetchable paths to the character's files |
+| files.def / files.air / files.sff / files.cns / files.cmd | string | Fetchable paths to the character's files, including its `.cmd` input command file |
 | portrait | string | Fetchable path to a static preview image |
 Defined in: `src/roster/manifest.ts`
 
@@ -85,6 +85,29 @@ Defined in: `src/wasm/stage-types.ts`
 | roundTimer, bestOf, bounds, gravity, comboWindow | number / `StageBoundaries` / number | Match-level simulation config |
 | matchId, inputs | number / `[TickInput, TickInput]` | `TickRequest` only — the session to advance and this tick's raw input |
 Defined in: `src/wasm/engine-types.ts`; assembled by `src/rendering/match-config.ts`'s `buildNewMatchRequest`
+
+## CommandFile
+| Field | Type | Notes |
+|---|---|---|
+| remap | `Record<string, string>` | Button-name remapping declared by the `.cmd` file's own `[Remap]` section |
+| defaults | `{ time, bufferTime }` | Default command recognition-window timings |
+| commands | `CommandDefinition[]` | Each declared command's name and raw, unevaluated input string |
+| states | `StateDefBlob[]` | Any `Statedef -1`-style always-active states the `.cmd` file itself declares |
+Defined in: `src/wasm/types.ts`; parsed via `src/wasm/bridge.ts`'s `loadCmd`, threaded into a fighter's `NewMatchRequest.programs[n].commands` by `src/rendering/match-config.ts`'s `buildFighterProgram` (falling back to an empty command file when none is supplied or parsing fails)
+
+## RawPlayerInput / TickInput
+| Field | Type | Notes |
+|---|---|---|
+| up, down, left, right | boolean | Raw physical directions currently held — not facing-relative |
+| buttons | `Record<ButtonName, boolean>` | Currently-held button names (`a b c x y z`), matching a `.cmd` file's own lowercase tokens |
+Defined in: `src/input/types.ts` (`RawPlayerInput`, every field always present); `src/wasm/engine-types.ts` (`TickInput`, the same shape with every field optional — `engine`'s own per-tick request contract). `src/input/tick-input-source.ts`'s `read()` produces one pair per rendered frame, reused for every simulation tick that frame's fixed-timestep loop runs.
+
+## KeyboardPlayerBindings
+| Field | Type | Notes |
+|---|---|---|
+| up, down, left, right | string | `KeyboardEvent.code` values (physical key, layout-independent) |
+| buttons | `Record<ButtonName, string>` | `KeyboardEvent.code` per button name |
+Defined in: `src/input/key-bindings.ts`; `DEFAULT_KEYBOARD_BINDINGS` gives Player 1 a WASD-based block and Player 2 an arrow-key-based block, spatially separate so two players can share one keyboard without a key ever bound to both.
 
 ## DrawCommand
 | Field | Type | Notes |

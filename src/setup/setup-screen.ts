@@ -1,11 +1,19 @@
 // Renders the match setup screen — the last screen before handing off to
-// the (not yet built) in-match HUD/rendering/input — where the two local
-// players jointly configure round count and per-round time limit, the
-// screen described by backlog item 003. See
+// the (not yet built) in-match HUD) and match rendering/input, where the
+// two local players jointly configure round count and per-round time
+// limit, the screen described by backlog item 003. See
 // .vibe/decisions/003-match-setup-screen-design.md for why this reuses the
 // stage screen's radiogroup-button idiom twice (once per field) rather than
 // introducing a new input pattern, and why "unlimited" is modeled as a
-// first-class tagged value rather than a numeric sentinel.
+// first-class tagged value rather than a numeric sentinel. The Controls
+// section (backlog item 006) is this project's only player-facing surface
+// for the default keyboard/gamepad bindings — see
+// `.vibe/decisions/005-input-routing-design.md`.
+import {
+  BUTTON_NAMES,
+  DEFAULT_KEYBOARD_BINDINGS,
+  keyLabel,
+} from "../input/key-bindings.ts";
 
 /** A configured time limit: a fixed duration in seconds, or no timer at all. */
 export type TimeLimitOption = { readonly seconds: number } | "unlimited";
@@ -198,9 +206,69 @@ export function renderSetupScreen(
   timeSection.appendChild(timeGroup);
   panel.appendChild(timeSection);
 
+  panel.appendChild(buildControlsSection());
   panel.appendChild(continueButton);
 
   root.appendChild(panel);
+}
+
+/**
+ * A read-only listing of both players' default keyboard bindings, plus a
+ * note that a connected gamepad is used automatically and falls back to
+ * keyboard if it disconnects — the discoverability acceptance criterion
+ * backlog item 006 requires. No rebinding UI exists yet; only the current
+ * default mapping is shown (see `.vibe/decisions/005`).
+ */
+function buildControlsSection(): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "setup-screen__controls";
+
+  const heading = document.createElement("h2");
+  heading.id = "setup-screen-controls-heading";
+  heading.textContent = "Controls";
+  section.appendChild(heading);
+
+  const grid = document.createElement("div");
+  grid.className = "setup-screen__controls-grid";
+  grid.setAttribute("aria-labelledby", heading.id);
+
+  DEFAULT_KEYBOARD_BINDINGS.forEach((binding, index) => {
+    const playerSection = document.createElement("div");
+    playerSection.className = "setup-screen__controls-player";
+
+    const playerHeading = document.createElement("h3");
+    playerHeading.textContent = `Player ${index + 1} (keyboard)`;
+    playerSection.appendChild(playerHeading);
+
+    const list = document.createElement("dl");
+    const addEntry = (label: string, key: string) => {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = keyLabel(key);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    };
+    addEntry("Up", binding.up);
+    addEntry("Down", binding.down);
+    addEntry("Left", binding.left);
+    addEntry("Right", binding.right);
+    for (const name of BUTTON_NAMES) {
+      addEntry(name.toUpperCase(), binding.buttons[name]);
+    }
+    playerSection.appendChild(list);
+    grid.appendChild(playerSection);
+  });
+
+  section.appendChild(grid);
+
+  const gamepadNote = document.createElement("p");
+  gamepadNote.className = "setup-screen__controls-note";
+  gamepadNote.textContent =
+    "A connected gamepad is used automatically for whichever player it's assigned to (first connected → Player 1, next → Player 2). If it disconnects mid-match, that player falls back to their keyboard controls above.";
+  section.appendChild(gamepadNote);
+
+  return section;
 }
 
 function buildErrorState(message: string): HTMLElement {

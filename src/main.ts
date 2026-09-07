@@ -1,5 +1,6 @@
 import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
+import { emptyCommandFile } from "./rendering/match-config.ts";
 import { renderMatch as renderMatchDefault } from "./rendering/match-renderer.ts";
 import { discoverRoster } from "./roster/discovery.ts";
 import {
@@ -20,7 +21,12 @@ import {
   fetchStageManifest,
 } from "./stage/manifest.ts";
 import { appVersion } from "./version.ts";
-import { type WasmBridgeOptions, loadCharacter } from "./wasm/bridge.ts";
+import {
+  type WasmBridgeOptions,
+  loadCharacter,
+  loadCmd,
+} from "./wasm/bridge.ts";
+import type { CommandFileBlob } from "./wasm/engine-types.ts";
 import { type StageWasmBridgeOptions, loadStage } from "./wasm/stage-bridge.ts";
 
 const APP_TITLE = "Quick Versus";
@@ -38,7 +44,13 @@ export interface RenderAppOptions {
    * Defaults to the real bridge's `loadCharacter`, driven by `bridgeOptions`.
    */
   loadCharacter?: typeof loadCharacter;
-  /** Forwarded to the real bridge's `loadCharacter` when `loadCharacter` is not overridden. */
+  /**
+   * Overrides the `.cmd` command-file loader used during match assembly,
+   * same rationale as `loadCharacter` above. Defaults to the real bridge's
+   * `loadCmd`, driven by `bridgeOptions` (the same character WASM module).
+   */
+  loadCmd?: typeof loadCmd;
+  /** Forwarded to the real bridge's `loadCharacter`/`loadCmd` when neither is overridden. */
   bridgeOptions?: WasmBridgeOptions;
   /** Forwarded to `fetchStageManifest`; injectable for testing. */
   stageManifestOptions?: FetchStageManifestOptions;
@@ -274,6 +286,9 @@ async function startMatch(
   const resolveStage =
     options.loadStage ??
     ((defBytes: Uint8Array) => loadStage(defBytes, options.stageBridgeOptions));
+  const resolveCmd =
+    options.loadCmd ??
+    ((cmdBytes: Uint8Array) => loadCmd(cmdBytes, options.bridgeOptions));
   const renderMatch = options.renderMatch ?? renderMatchDefault;
 
   const player1Entry = rosterEntries.find((e) => e.id === player1Id);
@@ -298,7 +313,28 @@ async function startMatch(
       sffBytes,
       cnsBytes,
     );
-    return { result, sffBytes };
+    const commands = await loadFighterCommands(entry);
+    return { result, sffBytes, commands };
+  }
+
+  /**
+   * Fetches and parses this fighter's own `.cmd` file so routed player
+   * input (backlog item 006) can resolve to recognized commands. A
+   * fetch/parse failure degrades this one fighter to no recognized
+   * commands (`emptyCommandFile()`) instead of blocking the whole match —
+   * same "degrade, don't block" precedent already used for a sprite that
+   * fails to resolve.
+   */
+  async function loadFighterCommands(
+    entry: RosterManifestEntry,
+  ): Promise<CommandFileBlob> {
+    try {
+      const cmdBytes = await fetchBytes(entry.files.cmd);
+      const parsed = await resolveCmd(cmdBytes);
+      return parsed.ok ? parsed.commandFile : emptyCommandFile();
+    } catch {
+      return emptyCommandFile();
+    }
   }
 
   let player1Loaded: Awaited<ReturnType<typeof loadFighter>>;
@@ -351,10 +387,12 @@ async function startMatch(
     player1: {
       character: player1Loaded.result.character,
       sffBytes: player1Loaded.sffBytes,
+      commands: player1Loaded.commands,
     },
     player2: {
       character: player2Loaded.result.character,
       sffBytes: player2Loaded.sffBytes,
+      commands: player2Loaded.commands,
     },
     stage: { stage: stageLoaded.stage, sffBytes: stageSffBytes },
     config,

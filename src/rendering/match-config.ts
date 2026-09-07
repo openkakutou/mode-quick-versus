@@ -36,8 +36,8 @@ export const STARTING_OFFSET = 70;
 /** A large-but-finite round timer standing in for "no timer" — `engine`'s `roundTimer` is a plain tick countdown with no first-class "unlimited" concept. ~4.6 hours at 60 ticks/second, long enough no real match will ever hit it. */
 export const UNLIMITED_ROUND_TIMER_TICKS = 999_999;
 
-/** An empty `cmd.CommandFile` — no player command is ever recognized until input routing (backlog item 006) supplies a real one, parsed from the character's own `.cmd` file. */
-function emptyCommandFile(): FighterProgram["commands"] {
+/** An empty `cmd.CommandFile` — the fallback used whenever a fighter's real, parsed `.cmd` file (backlog item 006) isn't available (not supplied, or its own fetch/parse failed): no player command is ever recognized, but the match still starts rather than being blocked by one broken command file. */
+export function emptyCommandFile(): FighterProgram["commands"] {
   return {
     remap: {},
     defaults: { time: 0, bufferTime: 0 },
@@ -54,10 +54,14 @@ function emptyCommandFile(): FighterProgram["commands"] {
  * (`character/cns`, `character/air`), so no field transformation is
  * needed, only reshaping the array into a keyed map. A state def whose
  * `number` field isn't a usable integer (malformed upstream data) is
- * skipped rather than building an invalid map key.
+ * skipped rather than building an invalid map key. `commands` is this
+ * fighter's own already-parsed `.cmd` file (see `main.ts`'s `loadFighter`);
+ * omitted (or falsy), it falls back to `emptyCommandFile()` rather than
+ * failing to build a program at all.
  */
 export function buildFighterProgram(
   character: CharacterSummary,
+  commands: FighterProgram["commands"] = emptyCommandFile(),
 ): FighterProgram {
   const states: FighterProgram["states"] = {};
   for (const stateDef of character.stateDefs) {
@@ -68,7 +72,7 @@ export function buildFighterProgram(
   return {
     states,
     animations: character.animations,
-    commands: emptyCommandFile(),
+    commands,
   };
 }
 
@@ -143,17 +147,27 @@ export interface MatchConfigInput {
 /**
  * Assembles a complete `engine` WASM `newMatch` request from both players'
  * already-loaded character data, the chosen stage, and the match setup
- * screen's configuration.
+ * screen's configuration. `commands`, if supplied, is each player's own
+ * already-parsed `.cmd` file, index-matched to `player1`/`player2` — never
+ * swapped or merged between the two. Either or both may be omitted, each
+ * independently falling back to `emptyCommandFile()`.
  */
 export function buildNewMatchRequest(
   player1: CharacterSummary,
   player2: CharacterSummary,
   stage: StageSummary,
   config: MatchConfigInput,
+  commands?: readonly [
+    FighterProgram["commands"] | undefined,
+    FighterProgram["commands"] | undefined,
+  ],
 ): NewMatchRequest {
   const bounds = resolveStageBoundaries(stage);
   return {
-    programs: [buildFighterProgram(player1), buildFighterProgram(player2)],
+    programs: [
+      buildFighterProgram(player1, commands?.[0]),
+      buildFighterProgram(player2, commands?.[1]),
+    ],
     starting: buildStartingFighters(bounds),
     roundTimer: resolveRoundTimerTicks(config.timeLimit),
     bestOf: config.rounds,

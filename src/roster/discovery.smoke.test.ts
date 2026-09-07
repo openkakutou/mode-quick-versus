@@ -49,6 +49,7 @@ const validEntry: RosterManifestEntry = {
     air: "sample.air",
     sff: "sample.sff",
     cns: "sample.cns",
+    cmd: "sample.cmd",
   },
 };
 const brokenEntry: RosterManifestEntry = {
@@ -59,6 +60,7 @@ const brokenEntry: RosterManifestEntry = {
     air: "sample.air",
     sff: "sample.sff",
     cns: "sample.cns",
+    cmd: "sample.cmd",
   },
 };
 
