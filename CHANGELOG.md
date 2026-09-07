@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-07
+
 ### Added
 
 - Match rendering: once both players' characters, a stage, and the match setup are all confirmed, the match now actually starts and renders — both characters' live sprites (correct position and current animation frame, driven by the combat engine) composited over the chosen stage's background, kept in sync with the simulation as it runs. A sprite that can't be resolved shows a clear placeholder instead of a blank gap or a crash.
@@ -29,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openkakutou/mode-quick-versus/releases/tag/v0.2.0
