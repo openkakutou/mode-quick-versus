@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 depends_on: [003]
 ---
 # Match Rendering
@@ -20,3 +20,6 @@ Re-checked 2026-08-31: the pixel-data half is resolved — `character`'s `resolv
 
 ## Blocked
 2026-08-31: `engine`'s WASM `tick`/`newMatch`/`resetRound` responses expose fighter position/state number but not the resolved animation number or frame timing, so this item cannot pick the correct sprite/frame per fighter yet. Filed as `engine` backlog item `017` (Expose Current Animation Number And Frame Timing Via WASM). Re-run `/vibe:feature 005` once that item is done and published (tagged release).
+
+## Unblocked
+2026-09-07: `engine#017` is `status: done` and published as `engine` `v2.1.0` (tag pushed to the remote) — the WASM `tick`/`newMatch`/`resetRound` responses now expose each fighter's resolved animation number and frame timing alongside position/facing/state. Both cross-repo prerequisites named above (`character`/`stage` pixel data, `engine` animation/frame state) are now met. Back to `status: todo`.
