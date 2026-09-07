@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Match rendering: once both players' characters, a stage, and the match setup are all confirmed, the match now actually starts and renders — both characters' live sprites (correct position and current animation frame, driven by the combat engine) composited over the chosen stage's background, kept in sync with the simulation as it runs. A sprite that can't be resolved shows a clear placeholder instead of a blank gap or a crash.
+
 ## [0.4.0] - 2026-08-29
 
 ### Added

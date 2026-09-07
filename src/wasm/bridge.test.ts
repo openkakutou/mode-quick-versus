@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadCharacter, resetWasmBridgeForTests } from "./bridge.ts";
+import {
+  loadCharacter,
+  resetWasmBridgeForTests,
+  resolveSprites,
+} from "./bridge.ts";
 
 // The real WASM assets (public/wasm/, gitignored) are fetched via
 // `npm run wasm:download` before tests run in this environment. There is no
@@ -57,10 +61,18 @@ describe("loadCharacter", () => {
       testOptions,
     );
 
-    expect(result).toEqual({
-      ok: true,
-      character: { name: "Roster Test Character" },
-    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.character.name).toBe("Roster Test Character");
+    // sample.air (see testdata/) declares two actions, 200 and 201.
+    expect(result.character.animations.map((a) => a.number).sort()).toEqual([
+      200, 201,
+    ]);
+    expect(result.character.sprites.length).toBeGreaterThan(0);
+    // sample.cns (see testdata/) declares Statedef 0, -1, and 200.
+    expect(result.character.stateDefs.map((s) => s.number).sort()).toEqual([
+      -1, 0, 200,
+    ]);
   });
 
   it("returns a typed error instead of throwing when the .def bytes are malformed", async () => {
@@ -123,5 +135,75 @@ describe("loadCharacter", () => {
     if (!first.ok || !second.ok) throw new Error("expected ok results");
     expect(first.character.name).toBe("First Load");
     expect(second.character.name).toBe("Second Load");
+  });
+});
+
+describe("resolveSprites", () => {
+  it("decodes real pixels for a sprite the sheet actually has", async () => {
+    const defBytes = textBytes("[Info]\nname = Sprite Resolve Test\n");
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected an ok result");
+    const [firstGroup] = loaded.character.sprites;
+    const [firstSprite] = firstGroup.sprites;
+
+    const [result] = await resolveSprites(
+      sffBytes,
+      [[firstSprite.group, firstSprite.image]],
+      null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.width).toBe(firstSprite.width);
+    expect(result.height).toBe(firstSprite.height);
+    expect(result.pixels.length).toBe(result.width * result.height * 4);
+  });
+
+  it("returns a typed per-request error for a sprite reference the sheet doesn't have", async () => {
+    const [result] = await resolveSprites(
+      sffBytes,
+      [[9999, 9999]],
+      null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("sprite not found");
+  });
+
+  it("resolves several requests in one batched call, in order", async () => {
+    const defBytes = textBytes("[Info]\nname = Batch Test\n");
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected an ok result");
+    const [firstGroup] = loaded.character.sprites;
+    const [firstSprite] = firstGroup.sprites;
+
+    const results = await resolveSprites(
+      sffBytes,
+      [
+        [firstSprite.group, firstSprite.image],
+        [9999, 9999],
+      ],
+      null,
+      testOptions,
+    );
+
+    expect(results).toHaveLength(2);
+    expect(results[0].ok).toBe(true);
+    expect(results[1].ok).toBe(false);
   });
 });

@@ -6,7 +6,16 @@
 // a shared/generalized loader. Same loading strategy (injectable fetch,
 // `Function`-executed `wasm_exec.js`, unawaited `go.run`) and discriminated-
 // union result shape as `bridge.ts`.
-import type { StageResult } from "./stage-types.ts";
+import type {
+  BGAnimation,
+  BGElement,
+  BGdef,
+  ResolveAnimationFrameRequest,
+  SpriteRef,
+  StageBoundaries,
+  StageResult,
+  StageSpritePixelResult,
+} from "./stage-types.ts";
 
 const DEFAULT_WASM_EXEC_URL = "./wasm/stage-wasm_exec.js";
 const DEFAULT_WASM_BINARY_URL = "./wasm/stage.wasm";
@@ -23,8 +32,28 @@ interface RawLoadResult {
   error: string | null;
 }
 
+/** One `resolveSprites` request result as returned raw by the WASM module: exactly one of `pixels`/`error` is non-null. */
+interface RawSpritePixelResult {
+  pixels: Uint8Array | null;
+  width: number;
+  height: number;
+  error: string | null;
+}
+
+/** The `{sprites, error}` shape returned by `OpenKakutouStage.resolveAnimationFrames`. */
+interface RawResolveAnimationFramesResult {
+  sprites: SpriteRef[] | null;
+  error: string | null;
+}
+
 interface OpenKakutouStageGlobal {
   load(defBytes: Uint8Array): RawLoadResult;
+  resolveSprites(
+    sffBytes: Uint8Array,
+    requests: [number, number][],
+    overrideBytes: Uint8Array | null | undefined,
+  ): RawSpritePixelResult[] | null;
+  resolveAnimationFrames(requestsJSON: string): RawResolveAnimationFramesResult;
 }
 
 export interface StageWasmBridgeOptions {
@@ -120,9 +149,12 @@ export function resetStageWasmBridgeForTests(): void {
 
 /**
  * Loads a stage from raw `.def` file bytes via the `stage` WASM module,
- * returning a typed result instead of throwing on malformed input. Only
- * the `name` field is mapped out of the full JSON contract — this app has
- * no use for the rest yet.
+ * returning a typed result instead of throwing on malformed input. `name`,
+ * `bgDef`, `elements`, `animations`, and `stageBoundaries` are mapped out
+ * of the full JSON contract, matching what `StageSummary` promises; a
+ * nil-by-default Go slice/map (`elements`/`animations`) is normalized to
+ * its non-null empty equivalent, matching `encoding/json`'s actual
+ * nil-marshals-to-`null` behavior.
  */
 export async function loadStage(
   defBytes: Uint8Array,
@@ -142,10 +174,109 @@ export async function loadStage(
     };
   }
 
-  // Only `name` is picked out of the full JSON payload, matching what
-  // `StageSummary` actually promises — the WASM module's contract carries
-  // much more (BG elements, camera bounds, animations) that this app has
-  // no use for yet.
-  const parsed = JSON.parse(raw.stage) as { name: string };
-  return { ok: true, stage: { name: parsed.name } };
+  // `name`, `bgDef`, `elements`, `animations`, and `stageBoundaries` are
+  // picked out of the full JSON payload, matching what `StageSummary`
+  // actually promises — the WASM module's contract carries more (camera
+  // bounds, 3D-only fields) that this app has no use for yet.
+  const parsed = JSON.parse(raw.stage) as {
+    name: string;
+    bgDef: BGdef;
+    elements: BGElement[] | null;
+    animations: Record<string, BGAnimation> | null;
+    stageBoundaries: StageBoundaries;
+  };
+  return {
+    ok: true,
+    stage: {
+      name: parsed.name,
+      bgDef: parsed.bgDef,
+      elements: parsed.elements ?? [],
+      animations: parsed.animations ?? {},
+      stageBoundaries: parsed.stageBoundaries,
+    },
+  };
+}
+
+/**
+ * Resolves one or more `(group, image)` sprite references against a loaded
+ * `.sff` sheet into actual displayable RGBA pixels, via the `stage` WASM
+ * module's batched `resolveSprites` global — the same contract shape as
+ * `character`'s own `resolveSprites` (see `wasm/bridge.ts`), a second,
+ * independent WASM module. A request naming a sprite the sheet has no
+ * metadata for resolves to a typed error for that entry only; a `null`
+ * return (an internal panic recovered mid-call, before any per-request
+ * result could be built) degrades to every request reporting the same
+ * error, never a thrown exception.
+ */
+export async function resolveSprites(
+  sffBytes: Uint8Array,
+  requests: readonly (readonly [number, number])[],
+  overrideBytes: Uint8Array | null = null,
+  options: StageWasmBridgeOptions = {},
+): Promise<StageSpritePixelResult[]> {
+  await ensureGoRuntimeReady(options);
+
+  const raw = getOpenKakutouStage().resolveSprites(
+    sffBytes,
+    requests.map(([group, image]) => [group, image]),
+    overrideBytes,
+  );
+
+  if (raw === null) {
+    return requests.map(() => ({
+      ok: false,
+      error: "OpenKakutouStage.resolveSprites returned no results",
+    }));
+  }
+
+  return raw.map((result) => {
+    if (result.error !== null) {
+      return { ok: false, error: result.error };
+    }
+    if (result.pixels === null) {
+      return {
+        ok: false,
+        error:
+          "OpenKakutouStage.resolveSprites returned neither pixels nor an error for a request",
+      };
+    }
+    return {
+      ok: true,
+      pixels: result.pixels,
+      width: result.width,
+      height: result.height,
+    };
+  });
+}
+
+/**
+ * Resolves, for one or more animated BG elements at once, which sprite
+ * each should currently show, via the `stage` WASM module's batched
+ * `resolveAnimationFrames` global. A request whose `animation` is `null`,
+ * empty, or otherwise malformed resolves to the blank sentinel
+ * `{group: -1, image: -1}` rather than failing that entry or the whole
+ * call — mirrors `stage.ResolveAnimationFrame`'s own "never panics"
+ * contract. Only a malformed call itself (unparseable argument) produces
+ * an `error`.
+ */
+export async function resolveAnimationFrames(
+  requests: readonly ResolveAnimationFrameRequest[],
+  options: StageWasmBridgeOptions = {},
+): Promise<{ ok: true; sprites: SpriteRef[] } | { ok: false; error: string }> {
+  await ensureGoRuntimeReady(options);
+
+  const raw = getOpenKakutouStage().resolveAnimationFrames(
+    JSON.stringify(requests),
+  );
+
+  if (raw.error !== null) {
+    return { ok: false, error: raw.error };
+  }
+  if (raw.sprites === null) {
+    return {
+      ok: false,
+      error: "OpenKakutouStage.resolveAnimationFrames returned no sprites",
+    };
+  }
+  return { ok: true, sprites: raw.sprites };
 }

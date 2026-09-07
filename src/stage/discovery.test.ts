@@ -15,7 +15,23 @@ describe("discoverStages", () => {
       new TextEncoder().encode(`bytes:${filePath}`);
     const loadStage = async (defBytes: Uint8Array) => ({
       ok: true as const,
-      stage: { name: `Loaded ${new TextDecoder().decode(defBytes)}` },
+      stage: {
+        name: `Loaded ${new TextDecoder().decode(defBytes)}`,
+        bgDef: {
+          spriteFile: "",
+          localCoordWidth: 0,
+          localCoordHeight: 0,
+          zOffset: 0,
+          zoomOut: 0,
+          zoomIn: 0,
+          modelFile: "",
+          xScale: 1,
+          yScale: 1,
+        },
+        elements: [],
+        animations: {},
+        stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+      },
     });
 
     const discovered = await discoverStages(entries, { fetchBytes, loadStage });
@@ -63,7 +79,23 @@ describe("discoverStages", () => {
     };
     const loadStage = async () => ({
       ok: true as const,
-      stage: { name: "unused" },
+      stage: {
+        name: "unused",
+        bgDef: {
+          spriteFile: "",
+          localCoordWidth: 0,
+          localCoordHeight: 0,
+          zOffset: 0,
+          zoomOut: 0,
+          zoomIn: 0,
+          modelFile: "",
+          xScale: 1,
+          yScale: 1,
+        },
+        elements: [],
+        animations: {},
+        stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+      },
     });
 
     const discovered = await discoverStages(entries, { fetchBytes, loadStage });
@@ -86,7 +118,23 @@ describe("discoverStages", () => {
     };
     const loadStage = async () => ({
       ok: true as const,
-      stage: { name: "Good Stage" },
+      stage: {
+        name: "Good Stage",
+        bgDef: {
+          spriteFile: "",
+          localCoordWidth: 0,
+          localCoordHeight: 0,
+          zOffset: 0,
+          zoomOut: 0,
+          zoomIn: 0,
+          modelFile: "",
+          xScale: 1,
+          yScale: 1,
+        },
+        elements: [],
+        animations: {},
+        stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+      },
     });
 
     const discovered = await discoverStages(entries, { fetchBytes, loadStage });
@@ -103,7 +151,26 @@ describe("discoverStages", () => {
   it("resolves an empty entry list to an empty array", async () => {
     const discovered = await discoverStages([], {
       fetchBytes: async () => new Uint8Array(),
-      loadStage: async () => ({ ok: true as const, stage: { name: "x" } }),
+      loadStage: async () => ({
+        ok: true as const,
+        stage: {
+          name: "x",
+          bgDef: {
+            spriteFile: "",
+            localCoordWidth: 0,
+            localCoordHeight: 0,
+            zOffset: 0,
+            zoomOut: 0,
+            zoomIn: 0,
+            modelFile: "",
+            xScale: 1,
+            yScale: 1,
+          },
+          elements: [],
+          animations: {},
+          stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+        },
+      }),
     });
 
     expect(discovered).toEqual([]);

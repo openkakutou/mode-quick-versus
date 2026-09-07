@@ -19,3 +19,7 @@ _Sources: `src/setup/setup-screen.ts`_
 ## Time limit
 The per-round countdown the players configure on the match setup screen, either a fixed number of seconds or "unlimited" (no timer for that round). Modeled as a distinct value from a plain duration so it can never be silently treated as a real number of seconds downstream.
 _Sources: `src/setup/setup-screen.ts`_
+
+## Placeholder sprite
+The fixed visual fallback drawn in place of a fighter's or a stage layer's sprite whenever its reference fails to resolve against the loaded sheet — one shared visual treatment, shown instead of a crash or a blank gap. Distinct from a sprite reference that legitimately draws nothing (a blank `.air` frame, or a stage `"anim"` element with no matching animation block), which is not an error and gets no placeholder at all.
+_Sources: `src/rendering/scene-composition.ts`_

@@ -1,6 +1,7 @@
 import "@openkakutou/web-ui-kit";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "./main.ts";
+import type { MatchRendererHandle } from "./rendering/match-renderer.ts";
 import type { StageResult } from "./wasm/stage-types.ts";
 import type { CharacterResult } from "./wasm/types.ts";
 
@@ -27,13 +28,35 @@ const stageManifestSource = JSON.stringify([
 
 function okLoadCharacter(name: string) {
   return vi.fn(
-    async (): Promise<CharacterResult> => ({ ok: true, character: { name } }),
+    async (): Promise<CharacterResult> => ({
+      ok: true,
+      character: { name, animations: [], sprites: [], stateDefs: [] },
+    }),
   );
 }
 
 function okLoadStage(name: string) {
   return vi.fn(
-    async (): Promise<StageResult> => ({ ok: true, stage: { name } }),
+    async (): Promise<StageResult> => ({
+      ok: true,
+      stage: {
+        name,
+        bgDef: {
+          spriteFile: "",
+          localCoordWidth: 0,
+          localCoordHeight: 0,
+          zOffset: 0,
+          zoomOut: 0,
+          zoomIn: 0,
+          modelFile: "",
+          xScale: 1,
+          yScale: 1,
+        },
+        elements: [],
+        animations: {},
+        stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+      },
+    }),
   );
 }
 
@@ -169,16 +192,32 @@ describe("renderApp", () => {
     expect(main.textContent).toContain("Match Setup");
   });
 
-  it("shows a confirmation naming both players' picks, the chosen stage, and the configured rounds/time limit once match setup's Continue is activated", async () => {
-    const root = document.createElement("div");
+  /** Drives the flow from a fresh render all the way through match setup's Continue, with `renderMatch` overridden to a spy. Returns the spy and `main`. */
+  async function renderAndStartMatch(
+    root: HTMLElement,
+    overrides: Parameters<typeof renderApp>[2] = {},
+  ): Promise<{
+    main: HTMLElement;
+    renderMatch: ReturnType<typeof vi.fn>;
+  }> {
+    const noopHandle: MatchRendererHandle = { stop() {} };
+    const renderMatchSpy = vi.fn(async () => noopHandle);
 
-    const main = await renderAndPickCharacters(root);
+    const main = await renderAndPickCharacters(root, {
+      renderMatch: renderMatchSpy,
+      ...overrides,
+    });
     main.querySelector<HTMLElement>(".stage-screen__select")?.click();
     const stageContinueEl = Array.from(
       main.querySelectorAll("wuik-button"),
     ).find((el) => el.textContent === "Continue") as HTMLElement;
     stageContinueEl.click();
 
+    await vi.waitFor(() => {
+      if (!main.textContent?.includes("Match Setup")) {
+        throw new Error("setup screen not mounted yet");
+      }
+    });
     main.querySelector<HTMLElement>('[data-value="3"]')?.click();
     main.querySelector<HTMLElement>('[data-label="Unlimited"]')?.click();
     const setupContinueEl = Array.from(
@@ -186,9 +225,75 @@ describe("renderApp", () => {
     ).find((el) => el.textContent === "Continue") as HTMLElement;
     setupContinueEl.click();
 
-    expect(main.textContent).toContain(
-      "Player 1: ryu — Player 2: ryu — Stage: training-room — Rounds: 3 — Time limit: Unlimited",
-    );
+    await vi.waitFor(() => {
+      expect(renderMatchSpy).toHaveBeenCalled();
+    });
+    return { main, renderMatch: renderMatchSpy };
+  }
+
+  it("starts match rendering with both players' loaded characters, the chosen stage, and the configured rounds/time limit once match setup's Continue is activated", async () => {
+    const root = document.createElement("div");
+
+    const { main, renderMatch } = await renderAndStartMatch(root);
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    const [renderRoot, input] = renderMatch.mock.calls[0];
+    expect(renderRoot).toBe(main);
+    expect(input.player1.character.name).toBe("Ryu");
+    expect(input.player2.character.name).toBe("Ryu");
+    expect(input.stage.stage.name).toBe("Training Room");
+    expect(input.config).toEqual({
+      rounds: 3,
+      timeLimit: "unlimited",
+    });
+  });
+
+  it("shows a clear error message instead of a blank screen when a match asset fails to (re)load", async () => {
+    const root = document.createElement("div");
+    let callCount = 0;
+
+    const main = await renderAndPickCharacters(root, {
+      // The 3rd loadCharacter call happens during match assembly (after
+      // the 2 initial roster-discovery calls) -- fail only that one.
+      loadCharacter: vi.fn(async () => {
+        callCount += 1;
+        if (callCount <= 2) {
+          return {
+            ok: true as const,
+            character: {
+              name: "Ryu",
+              animations: [],
+              sprites: [],
+              stateDefs: [],
+            },
+          };
+        }
+        return { ok: false as const, error: "corrupt .cns file" };
+      }),
+    });
+    main.querySelector<HTMLElement>(".stage-screen__select")?.click();
+    const stageContinueEl = Array.from(
+      main.querySelectorAll("wuik-button"),
+    ).find((el) => el.textContent === "Continue") as HTMLElement;
+    stageContinueEl.click();
+
+    await vi.waitFor(() => {
+      if (!main.textContent?.includes("Match Setup")) {
+        throw new Error("setup screen not mounted yet");
+      }
+    });
+    main.querySelector<HTMLElement>('[data-value="3"]')?.click();
+    main.querySelector<HTMLElement>('[data-label="Unlimited"]')?.click();
+    const setupContinueEl = Array.from(
+      main.querySelectorAll("wuik-button"),
+    ).find((el) => el.textContent === "Continue") as HTMLElement;
+    setupContinueEl.click();
+
+    await vi.waitFor(() => {
+      if (!main.textContent?.includes("corrupt .cns file")) {
+        throw new Error("error message not shown yet");
+      }
+    });
   });
 
   it("replaces previous content instead of appending on repeated renders", async () => {

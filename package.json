@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "lint": "biome check --write .",
     "wasm:download": "node scripts/download-wasm.mjs",
-    "wasm:download:stage": "node scripts/download-wasm.mjs stage"
+    "wasm:download:stage": "node scripts/download-wasm.mjs stage",
+    "wasm:download:engine": "node scripts/download-wasm.mjs engine"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

@@ -5,7 +5,13 @@
 // discriminated-union result shape as `character-viewer-web`'s own bridge —
 // see that repo's `.vibe/decisions/002-wasm-bridge-loading-and-result-shape.md`
 // for the full rationale, not re-derived here.
-import type { CharacterResult } from "./types.ts";
+import type {
+  Animation,
+  CharacterResult,
+  SpriteGroup,
+  SpritePixelResult,
+  StateDefBlob,
+} from "./types.ts";
 
 const DEFAULT_WASM_EXEC_URL = "./wasm/wasm_exec.js";
 const DEFAULT_WASM_BINARY_URL = "./wasm/character.wasm";
@@ -22,6 +28,14 @@ interface RawLoadResult {
   error: string | null;
 }
 
+/** One `resolveSprites` request result as returned raw by the WASM module: exactly one of `pixels`/`error` is non-null. */
+interface RawSpritePixelResult {
+  pixels: Uint8Array | null;
+  width: number;
+  height: number;
+  error: string | null;
+}
+
 interface OpenKakutouCharacterGlobal {
   load(
     defBytes: Uint8Array,
@@ -29,6 +43,11 @@ interface OpenKakutouCharacterGlobal {
     sffBytes: Uint8Array,
     cnsBytes: Uint8Array,
   ): RawLoadResult;
+  resolveSprites(
+    sffBytes: Uint8Array,
+    requests: [number, number][],
+    overrideBytes: Uint8Array | null | undefined,
+  ): RawSpritePixelResult[] | null;
 }
 
 export interface WasmBridgeOptions {
@@ -150,10 +169,72 @@ export async function loadCharacter(
     };
   }
 
-  // Only `name` is picked out of the full JSON payload, matching what
-  // `CharacterSummary` actually promises — the WASM module's contract
-  // carries much more (animations, sprites, state defs) that this app has
-  // no use for yet.
-  const parsed = JSON.parse(raw.character) as { name: string };
-  return { ok: true, character: { name: parsed.name } };
+  // `name`, `animations`, `sprites`, and `stateDefs` are picked out of the
+  // full JSON payload, matching what `CharacterSummary` actually promises.
+  const parsed = JSON.parse(raw.character) as {
+    name: string;
+    animations: Animation[];
+    sprites: SpriteGroup[];
+    stateDefs: StateDefBlob[];
+  };
+  return {
+    ok: true,
+    character: {
+      name: parsed.name,
+      animations: parsed.animations,
+      sprites: parsed.sprites,
+      stateDefs: parsed.stateDefs,
+    },
+  };
+}
+
+/**
+ * Resolves one or more `(group, image)` sprite references against a loaded
+ * `.sff` sheet into actual displayable RGBA pixels, via the `character`
+ * WASM module's batched `resolveSprites` global — see that module's own
+ * `docs/wasm.md` for the full contract. A request naming a sprite the
+ * sheet has no metadata for resolves to a typed error for that entry only;
+ * a `null` return (an internal panic recovered mid-call, before any
+ * per-request result could be built) degrades to every request reporting
+ * the same error, never a thrown exception.
+ */
+export async function resolveSprites(
+  sffBytes: Uint8Array,
+  requests: readonly (readonly [number, number])[],
+  overrideBytes: Uint8Array | null = null,
+  options: WasmBridgeOptions = {},
+): Promise<SpritePixelResult[]> {
+  await ensureGoRuntimeReady(options);
+
+  const raw = getOpenKakutouCharacter().resolveSprites(
+    sffBytes,
+    requests.map(([group, image]) => [group, image]),
+    overrideBytes,
+  );
+
+  if (raw === null) {
+    return requests.map(() => ({
+      ok: false,
+      error: "OpenKakutouCharacter.resolveSprites returned no results",
+    }));
+  }
+
+  return raw.map((result) => {
+    if (result.error !== null) {
+      return { ok: false, error: result.error };
+    }
+    if (result.pixels === null) {
+      return {
+        ok: false,
+        error:
+          "OpenKakutouCharacter.resolveSprites returned neither pixels nor an error for a request",
+      };
+    }
+    return {
+      ok: true,
+      pixels: result.pixels,
+      width: result.width,
+      height: result.height,
+    };
+  });
 }

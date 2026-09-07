@@ -279,6 +279,22 @@ describe("main (CLI wrapper)", () => {
     ]);
   });
 
+  it("downloads the engine target's assets, writing wasm_exec.js as engine-wasm_exec.js", async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.includes("openkakutou/engine/"))
+        return okResponse(new Uint8Array([1]));
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    const exitCode = await main(["engine", "v2.1.0"], { outDir, fetchImpl });
+
+    expect(exitCode).toBe(0);
+    expect((await readdir(outDir)).sort()).toEqual([
+      "engine-wasm_exec.js",
+      "engine.wasm",
+    ]);
+  });
+
   it("rejects with a usage error for an unknown target", async () => {
     const stderr = vi
       .spyOn(process.stderr, "write")

@@ -39,6 +39,16 @@ const TARGETS = Object.freeze({
       Object.freeze({ name: "wasm_exec.js", localName: "stage-wasm_exec.js" }),
     ]),
   }),
+  // `engine` has no published release with build assets attached yet (see
+  // .vibe/decisions/004-match-rendering-architecture.md) -- this target is
+  // wired up ready for when one exists, mirroring `stage`'s own shape.
+  engine: Object.freeze({
+    repo: "openkakutou/engine",
+    assets: Object.freeze([
+      "engine.wasm",
+      Object.freeze({ name: "wasm_exec.js", localName: "engine-wasm_exec.js" }),
+    ]),
+  }),
 });
 
 export class DownloadError extends Error {
