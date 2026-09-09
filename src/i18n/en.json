@@ -1,0 +1,51 @@
+{
+  "app": {
+    "languageLabel": "Language"
+  },
+  "status": {
+    "discoveringRoster": "Discovering roster…",
+    "rosterLoadError": "Could not load the character roster: {{error}}",
+    "discoveringStages": "Discovering stages…",
+    "stageLoadError": "Could not load the stage list: {{error}}",
+    "loadingMatchAssets": "Loading match assets…",
+    "matchStartMissingPick": "Could not start the match: one of the selected picks is no longer available.",
+    "matchStartFetchError": "Could not start the match: could not fetch match files: {{message}}",
+    "matchStartCharacterError": "Could not start the match: {{error}}",
+    "matchStartStageError": "Could not start the match: {{error}}"
+  },
+  "roster": {
+    "heading": "Choose your character",
+    "continue": "Continue",
+    "empty": "No characters are available yet. Check back once the roster has been configured.",
+    "unavailable": "Unavailable: {{message}}",
+    "player1": "Player 1",
+    "player2": "Player 2"
+  },
+  "stage": {
+    "heading": "Choose your stage",
+    "continue": "Continue",
+    "empty": "No stages are available yet. Check back once the stage list has been configured.",
+    "unavailable": "Unavailable: {{message}}",
+    "gridLabel": "Available stages",
+    "select": "Select this stage",
+    "selected": "Selected"
+  },
+  "setup": {
+    "heading": "Match Setup",
+    "continue": "Continue",
+    "roundsHeading": "Round Count",
+    "roundsOption": "Rounds: {{value}}",
+    "timeHeading": "Time Limit",
+    "timeLimitSeconds": "{{seconds}}s",
+    "timeLimitUnlimited": "Unlimited",
+    "invalidRoundOption": "Invalid round count option: {{value}}. Round counts must be positive odd integers.",
+    "invalidTimeLimitOption": "Invalid time limit option: {{value}}. Time limits must be a positive number of seconds, or \"unlimited\".",
+    "controlsHeading": "Controls",
+    "controlsPlayerHeading": "Player {{number}} (keyboard)",
+    "directionUp": "Up",
+    "directionDown": "Down",
+    "directionLeft": "Left",
+    "directionRight": "Right",
+    "gamepadNote": "A connected gamepad is used automatically for whichever player it's assigned to (first connected → Player 1, next → Player 2). If it disconnects mid-match, that player falls back to their keyboard controls above."
+  }
+}

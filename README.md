@@ -10,6 +10,7 @@ This project is in early-stage development. Available now:
 - Match setup: once a stage is chosen, players pick the round count (1, 3, or 5) and the per-round time limit (60s, 99s, or unlimited) before the match starts. Both choices are required to continue, and changing one never resets the other.
 - Match rendering: once setup is confirmed, the match actually starts — both characters appear at their live position, playing their current animation, composited over the chosen stage's background, kept in sync as the match runs. A character or stage sprite that can't be shown falls back to a clear placeholder rather than a gap or a crash.
 - Player input: each player has their own default keyboard controls (shown on the match setup screen), and a connected gamepad is used automatically for whichever player it's assigned to — no setup required. If a gamepad disconnects mid-match, that player falls back to their keyboard controls instead of freezing.
+- Localization: the character selection, stage selection, and match setup screens are available in English and French, with a language switcher that changes the displayed language instantly. The chosen language is remembered the next time the app loads.
 
 Planned:
 

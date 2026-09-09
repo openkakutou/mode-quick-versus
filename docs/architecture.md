@@ -32,7 +32,8 @@
   - `sprite-pixel-cache.ts` — decodes a given sprite reference at most once per match session, never re-requesting it once resolved (or once known to have failed).
   - `tick-scheduling.ts` — pure fixed-timestep accounting: how many simulation ticks a render frame should run, capped so a long gap (e.g. a backgrounded browser tab) resyncs rather than freezing to catch up.
   - `match-renderer.ts` — ties the above together: starts a match via the `engine` bridge, resolves the sprites needed to draw its current state (cached), reads live input once per frame from `src/input/tick-input-source.ts` and threads it into the simulation, and drives the tick loop that keeps the canvas in sync. Shows a brief loading status while the match starts, then the canvas plus a live status line naming each player's current input source (keyboard or gamepad).
-- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell, then chains manifest fetch → discovery → selection screen for the character roster, followed by the same pipeline for the stage list once both players have picked, then the match setup screen once a stage is chosen, then — once setup is confirmed — re-fetches both players' character files (including their `.cmd` command file) and the chosen stage's file and starts match rendering.
+- **`src/i18n/`** — localization: `i18n.ts` wires `web-ui-kit`'s shared i18next integration layer under this app's own namespace (`"mode-quick-versus"`) and its own `localStorage` key, plus a `t(key, defaultValue, vars?)` wrapper that falls back to the interpolated `defaultValue` before i18n has initialized (e.g. in a test rendering a screen directly). `en.json`/`fr.json` hold this app's own message catalogs for the roster, stage, and setup screens.
+- **`src/main.ts`** — the composition root: builds the `web-ui-kit` app shell (including a `<wuik-locale-switcher>` in the toolbar), then chains manifest fetch → discovery → selection screen for the character roster, followed by the same pipeline for the stage list once both players have picked, then the match setup screen once a stage is chosen, then — once setup is confirmed — re-fetches both players' character files (including their `.cmd` command file) and the chosen stage's file and starts match rendering.
 
 ## Data flow
 
@@ -64,6 +65,10 @@ Every external effect (`fetch`, the WASM instantiation, `requestAnimationFrame`,
 ## Roster and stage manifests
 
 Neither list is hardcoded into the app: `public/roster-manifest.json` and `public/stage-manifest.json` are both fetched at runtime and list each entry's file paths and a static portrait image path. A roster entry lists all five of a character's files — `.def`, `.air`, `.sff`, `.cns`, and `.cmd` (the input command file routed player input resolves against). Both committed defaults ship as an empty array (`[]`); a real deployment overwrites these files with the actual roster/stage list at deploy time. The stage manifest lists only a stage's `.def` path — its `.sff` sprite sheet path is instead read out of the loaded stage's own `[BGDef]` data and resolved by basename against the `.def`'s own directory.
+
+## Localization
+
+The roster, stage, and setup screens hold in-progress, not-yet-submitted user selections (both players' character picks, the chosen stage, the chosen round count/time limit) in local closures. Each screen subscribes to a locale-change notification internally and re-translates only its already-rendered text in place — never rebuilding its DOM — so switching language mid-screen never resets a player's current pick. `main.ts`'s own transient one-line status text (shown briefly between screens while a manifest or match asset fetch is in flight) is translated at the moment it is shown, but not wired to retranslate live, since it holds no state and isn't one of the three screens above. See `.vibe/decisions/006-i18n-integration-approach.md` for the full rationale, including why the round option label reads "Rounds: 3" rather than a pluralized "3 Rounds".
 
 ## Local setup
 

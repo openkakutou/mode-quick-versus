@@ -1,5 +1,6 @@
 import "@openkakutou/web-ui-kit";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { initAppI18n } from "./i18n/i18n.ts";
 import { renderApp } from "./main.ts";
 import type { MatchRendererHandle } from "./rendering/match-renderer.ts";
 import type { StageResult } from "./wasm/stage-types.ts";
@@ -109,6 +110,20 @@ describe("renderApp", () => {
     const toolbar = shell?.querySelector('[slot="toolbar"]');
     expect(toolbar?.tagName.toLowerCase()).toBe("wuik-toolbar");
     expect(toolbar?.textContent).toBe("Quick Versus — v0.1.0");
+  });
+
+  it("mounts a locale switcher in the toolbar (backlog item 009)", async () => {
+    const root = document.createElement("div");
+
+    await renderApp(root, "0.1.0", {
+      manifestOptions: { fetchManifestSource: async () => "[]" },
+      fetchBytes: async () => new Uint8Array(),
+      loadCharacter: okLoadCharacter("unused"),
+    });
+
+    const toolbar = root.querySelector('[slot="toolbar"]');
+    const switcher = toolbar?.querySelector("wuik-locale-switcher");
+    expect(switcher).not.toBeNull();
   });
 
   it("discovers the roster from the manifest and renders it in the main content area", async () => {
@@ -373,5 +388,37 @@ describe("renderApp", () => {
     expect(root.querySelector('[slot="toolbar"]')?.textContent).toBe(
       "Quick Versus — v0.2.0",
     );
+  });
+
+  describe("live locale switching (backlog item 009)", () => {
+    afterEach(async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("re-translates the locale switcher's own accessible label in place", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      const root = document.createElement("div");
+
+      await renderApp(root, "0.1.0", {
+        manifestOptions: { fetchManifestSource: async () => "[]" },
+        fetchBytes: async () => new Uint8Array(),
+        loadCharacter: okLoadCharacter("unused"),
+      });
+
+      const switcher = root.querySelector("wuik-locale-switcher");
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(switcher?.getAttribute("label")).toBe("Langue");
+      });
+
+      // The toolbar's brand title/version stay untranslated proper nouns.
+      expect(root.querySelector('[slot="toolbar"]')?.textContent).toBe(
+        "Quick Versus — v0.1.0",
+      );
+    });
   });
 });

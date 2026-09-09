@@ -1,5 +1,14 @@
 import "@openkakutou/web-ui-kit";
-import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type Mock,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { initAppI18n } from "../i18n/i18n.ts";
 import { type MatchSetupConfig, renderSetupScreen } from "./setup-screen.ts";
 
 function roundButton(root: HTMLElement, value: number): HTMLElement {
@@ -200,6 +209,60 @@ describe("renderSetupScreen", () => {
       renderSetupScreen(root, { roundOptions: [1, 2, 5], onContinue });
 
       expect(root.querySelector(".setup-screen__controls")).toBeNull();
+    });
+  });
+
+  describe("live locale switching (backlog item 009)", () => {
+    afterEach(async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("re-translates headings, Continue, and the Controls section in place without losing the current picks", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderSetupScreen(root, { onContinue });
+
+      roundButton(root, 3).click();
+      timeButton(root, "99s").click();
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.querySelector("h1")?.textContent).toBe(
+          "Configuration du match",
+        );
+      });
+
+      expect(continueButton(root).textContent).toBe("Continuer");
+      const headings = Array.from(root.querySelectorAll("h2")).map(
+        (el) => el.textContent,
+      );
+      expect(headings).toContain("Nombre de rounds");
+      expect(headings).toContain("Limite de temps");
+      expect(headings).toContain("Commandes");
+      // Physical key names are never translated.
+      const sections = root.querySelectorAll(".setup-screen__controls-player");
+      expect(sections[0].textContent).toContain("W");
+      expect(sections[1].textContent).toContain("Arrow Up");
+      // The current picks survive the locale switch untouched.
+      expect(roundButton(root, 3).getAttribute("aria-checked")).toBe("true");
+      expect(timeButton(root, "99s").getAttribute("aria-checked")).toBe("true");
+      expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+    });
+
+    it("re-translates the blocking error state in place", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderSetupScreen(root, { roundOptions: [1, 2, 5], onContinue });
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.textContent).toContain(
+          "Option de nombre de rounds invalide",
+        );
+      });
+      expect(root.textContent).toContain("2");
     });
   });
 });

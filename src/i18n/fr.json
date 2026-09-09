@@ -1,0 +1,51 @@
+{
+  "app": {
+    "languageLabel": "Langue"
+  },
+  "status": {
+    "discoveringRoster": "Découverte du roster…",
+    "rosterLoadError": "Impossible de charger le roster de personnages : {{error}}",
+    "discoveringStages": "Découverte des stages…",
+    "stageLoadError": "Impossible de charger la liste des stages : {{error}}",
+    "loadingMatchAssets": "Chargement des ressources du match…",
+    "matchStartMissingPick": "Impossible de démarrer le match : l'un des choix sélectionnés n'est plus disponible.",
+    "matchStartFetchError": "Impossible de démarrer le match : impossible de récupérer les fichiers du match : {{message}}",
+    "matchStartCharacterError": "Impossible de démarrer le match : {{error}}",
+    "matchStartStageError": "Impossible de démarrer le match : {{error}}"
+  },
+  "roster": {
+    "heading": "Choisissez votre personnage",
+    "continue": "Continuer",
+    "empty": "Aucun personnage n'est disponible pour le moment. Revenez une fois le roster configuré.",
+    "unavailable": "Indisponible : {{message}}",
+    "player1": "Joueur 1",
+    "player2": "Joueur 2"
+  },
+  "stage": {
+    "heading": "Choisissez votre stage",
+    "continue": "Continuer",
+    "empty": "Aucun stage n'est disponible pour le moment. Revenez une fois la liste des stages configurée.",
+    "unavailable": "Indisponible : {{message}}",
+    "gridLabel": "Stages disponibles",
+    "select": "Choisir ce stage",
+    "selected": "Choisi"
+  },
+  "setup": {
+    "heading": "Configuration du match",
+    "continue": "Continuer",
+    "roundsHeading": "Nombre de rounds",
+    "roundsOption": "Rounds : {{value}}",
+    "timeHeading": "Limite de temps",
+    "timeLimitSeconds": "{{seconds}}s",
+    "timeLimitUnlimited": "Illimité",
+    "invalidRoundOption": "Option de nombre de rounds invalide : {{value}}. Le nombre de rounds doit être un entier positif impair.",
+    "invalidTimeLimitOption": "Option de limite de temps invalide : {{value}}. La limite de temps doit être un nombre positif de secondes, ou « illimité ».",
+    "controlsHeading": "Commandes",
+    "controlsPlayerHeading": "Joueur {{number}} (clavier)",
+    "directionUp": "Haut",
+    "directionDown": "Bas",
+    "directionLeft": "Gauche",
+    "directionRight": "Droite",
+    "gamepadNote": "Une manette connectée est utilisée automatiquement pour le joueur auquel elle est assignée (première connectée → Joueur 1, suivante → Joueur 2). Si elle se déconnecte en cours de match, ce joueur revient à ses commandes clavier ci-dessus."
+  }
+}

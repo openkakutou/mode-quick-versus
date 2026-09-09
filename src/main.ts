@@ -1,5 +1,7 @@
 import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
+import type { WuikLocaleSwitcherElement } from "@openkakutou/web-ui-kit";
+import { getI18n, initAppI18n, onLocaleChange, t } from "./i18n/i18n.ts";
 import { emptyCommandFile } from "./rendering/match-config.ts";
 import { renderMatch as renderMatchDefault } from "./rendering/match-renderer.ts";
 import { discoverRoster } from "./roster/discovery.ts";
@@ -83,17 +85,38 @@ async function defaultFetchBytes(filePath: string): Promise<Uint8Array> {
 }
 
 /**
+ * Stops the previous `renderApp` call's toolbar locale-change subscription
+ * for a given root before a new call replaces its content — same "stop the
+ * previous one first" convention the individual screens
+ * (`selection/roster-screen.ts` etc.) and `rendering/match-renderer.ts` use.
+ */
+const activeUnsubscribeByRoot = new WeakMap<HTMLElement, () => void>();
+
+/**
  * Builds the app's root frame — a `web-ui-kit` `<wuik-app-shell>` with the
- * app title (plus version) in the toolbar — then discovers the character
- * roster (backlog item 001) and renders the selection screen in the main
- * content area. A roster manifest that fails to load, or an empty roster,
- * both degrade to a clear message instead of a blank/broken screen.
+ * app title (plus version) and a `<wuik-locale-switcher>` (backlog item
+ * 009) in the toolbar — then discovers the character roster (backlog item
+ * 001) and renders the selection screen in the main content area. A
+ * roster manifest that fails to load, or an empty roster, both degrade to
+ * a clear message instead of a blank/broken screen.
+ *
+ * The toolbar's brand title/version stay untranslated proper nouns, so
+ * they don't need to react to a locale change; the locale switcher's own
+ * accessible label does, since it stays mounted for the whole session
+ * across every screen transition (see `.vibe/decisions/006`). The
+ * transient one-line status text below is translated at the moment it is
+ * shown, but is not itself wired to retranslate live — it is shown for a
+ * few hundred milliseconds while a manifest/asset fetch is in flight, not
+ * one of this item's three named screens, and holds no state a user could
+ * lose.
  */
 export async function renderApp(
   root: HTMLElement,
   version: string,
   options: RenderAppOptions = {},
 ): Promise<void> {
+  activeUnsubscribeByRoot.get(root)?.();
+  activeUnsubscribeByRoot.delete(root);
   root.replaceChildren();
 
   const shell = document.createElement("wuik-app-shell");
@@ -105,20 +128,40 @@ export async function renderApp(
   title.className = "app-title";
   title.textContent = `${APP_TITLE} — v${version}`;
   toolbar.appendChild(title);
+
+  const localeSwitcher = document.createElement(
+    "wuik-locale-switcher",
+  ) as unknown as WuikLocaleSwitcherElement;
+  localeSwitcher.className = "locale-switcher";
+  localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
+  localeSwitcher.i18n = getI18n();
+  toolbar.appendChild(localeSwitcher);
+
   shell.appendChild(toolbar);
 
   const main = document.createElement("main");
   const status = document.createElement("p");
   status.className = "app-status";
-  status.textContent = "Discovering roster…";
+  status.textContent = t("status.discoveringRoster", "Discovering roster…");
   main.appendChild(status);
   shell.appendChild(main);
 
   root.appendChild(shell);
 
+  activeUnsubscribeByRoot.set(
+    root,
+    onLocaleChange(() => {
+      localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
+    }),
+  );
+
   const manifestResult = await fetchRosterManifest(options.manifestOptions);
   if (!manifestResult.ok) {
-    status.textContent = `Could not load the character roster: ${manifestResult.error}`;
+    status.textContent = t(
+      "status.rosterLoadError",
+      "Could not load the character roster: {{error}}",
+      { error: manifestResult.error },
+    );
     return;
   }
 
@@ -173,14 +216,18 @@ async function showStageSelection(
   main.replaceChildren();
   const status = document.createElement("p");
   status.className = "app-status";
-  status.textContent = "Discovering stages…";
+  status.textContent = t("status.discoveringStages", "Discovering stages…");
   main.appendChild(status);
 
   const stageManifestResult = await fetchStageManifest(
     options.stageManifestOptions,
   );
   if (!stageManifestResult.ok) {
-    status.textContent = `Could not load the stage list: ${stageManifestResult.error}`;
+    status.textContent = t(
+      "status.stageLoadError",
+      "Could not load the stage list: {{error}}",
+      { error: stageManifestResult.error },
+    );
     return;
   }
 
@@ -264,7 +311,7 @@ async function startMatch(
   main.replaceChildren();
   const status = document.createElement("p");
   status.className = "app-status";
-  status.textContent = "Loading match assets…";
+  status.textContent = t("status.loadingMatchAssets", "Loading match assets…");
   main.appendChild(status);
 
   const fetchBytes = options.fetchBytes ?? defaultFetchBytes;
@@ -295,8 +342,10 @@ async function startMatch(
   const player2Entry = rosterEntries.find((e) => e.id === player2Id);
   const stageEntry = stageEntries.find((e) => e.id === stageId);
   if (!player1Entry || !player2Entry || !stageEntry) {
-    status.textContent =
-      "Could not start the match: one of the selected picks is no longer available.";
+    status.textContent = t(
+      "status.matchStartMissingPick",
+      "Could not start the match: one of the selected picks is no longer available.",
+    );
     return;
   }
 
@@ -366,20 +415,36 @@ async function startMatch(
       : new Uint8Array();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    status.textContent = `Could not start the match: could not fetch match files: ${message}`;
+    status.textContent = t(
+      "status.matchStartFetchError",
+      "Could not start the match: could not fetch match files: {{message}}",
+      { message },
+    );
     return;
   }
 
   if (!player1Loaded.result.ok) {
-    status.textContent = `Could not start the match: ${player1Loaded.result.error}`;
+    status.textContent = t(
+      "status.matchStartCharacterError",
+      "Could not start the match: {{error}}",
+      { error: player1Loaded.result.error },
+    );
     return;
   }
   if (!player2Loaded.result.ok) {
-    status.textContent = `Could not start the match: ${player2Loaded.result.error}`;
+    status.textContent = t(
+      "status.matchStartCharacterError",
+      "Could not start the match: {{error}}",
+      { error: player2Loaded.result.error },
+    );
     return;
   }
   if (!stageLoaded.ok) {
-    status.textContent = `Could not start the match: ${stageLoaded.error}`;
+    status.textContent = t(
+      "status.matchStartStageError",
+      "Could not start the match: {{error}}",
+      { error: stageLoaded.error },
+    );
     return;
   }
 
@@ -415,7 +480,20 @@ function resolveStageSffPath(
   return `${dir}${basename}`;
 }
 
-const app = document.querySelector<HTMLDivElement>("#app");
-if (app) {
-  renderApp(app, appVersion);
+/**
+ * `initAppI18n` is awaited here, before the very first `renderApp` call --
+ * never inside `renderApp` itself, which stays synchronous-callable so
+ * tests can keep calling it directly with deterministic English defaults
+ * (see `.vibe/decisions/006-i18n-integration-approach.md`). This is also
+ * why the real app never flashes English before a persisted locale
+ * resolves: the first paint already has the right language.
+ */
+async function mount(): Promise<void> {
+  await initAppI18n();
+  const app = document.querySelector<HTMLDivElement>("#app");
+  if (app) {
+    void renderApp(app, appVersion);
+  }
 }
+
+void mount();

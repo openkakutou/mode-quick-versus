@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Localization (i18n): the character/roster selection, stage selection, and match setup screens are now available in English and French, with a language switcher in the toolbar that changes the displayed language instantly, without a page reload. The chosen language is detected from the browser by default and remembered the next time the app loads. Switching language never loses an in-progress pick (character, stage, round count, time limit). The in-match HUD and the not-yet-built round/match result screen are not covered by this change.
+
 ## [0.6.1] - 2026-09-08
 
 ### Fixed

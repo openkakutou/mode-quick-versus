@@ -4,12 +4,25 @@
 // single-choice (role="radiogroup") grid rather than item 001's
 // two-button-per-card pattern: a stage is shared by both players, not
 // picked independently.
+//
+// UI text is localized (backlog item 009, see
+// .vibe/decisions/006-i18n-integration-approach.md): this screen holds an
+// in-progress, not-yet-submitted pick in a local closure that a full
+// re-render from scratch would destroy, so it subscribes to
+// `onLocaleChange` internally and re-translates only its already-rendered
+// text in place.
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import type { DiscoveredStage } from "../stage/discovery.ts";
 
 export interface StageScreenOptions {
   /** Called once a stage is selected and Continue is activated. */
   onContinue: (stageId: string) => void;
 }
+
+/** Stops the previous render call's locale-change subscription for a given
+ * root before a new render replaces its content — same convention
+ * `selection/roster-screen.ts` and `rendering/match-renderer.ts` use. */
+const activeUnsubscribeByRoot = new WeakMap<HTMLElement, () => void>();
 
 /**
  * Renders the stage screen into `root`, replacing its previous content.
@@ -21,18 +34,23 @@ export function renderStageScreen(
   entries: readonly DiscoveredStage[],
   options: StageScreenOptions,
 ): void {
+  activeUnsubscribeByRoot.get(root)?.();
+  activeUnsubscribeByRoot.delete(root);
   root.replaceChildren();
 
   if (entries.length === 0) {
-    root.appendChild(buildEmptyState());
+    const empty = buildEmptyState();
+    root.appendChild(empty.element);
+    activeUnsubscribeByRoot.set(root, onLocaleChange(empty.retranslate));
     return;
   }
 
   let selectedId: string | null = null;
   const selectButtonsById = new Map<string, HTMLElement>();
+  const errorMessagesByEntry = new Map<HTMLElement, string>();
 
   const continueButton = document.createElement("wuik-button");
-  continueButton.textContent = "Continue";
+  continueButton.textContent = t("stage.continue", "Continue");
   continueButton.setAttribute("disabled", "");
   continueButton.addEventListener("click", () => {
     if (selectedId === null) return;
@@ -61,11 +79,13 @@ export function renderStageScreen(
   const grid = document.createElement("div");
   grid.className = "stage-screen__grid";
   grid.setAttribute("role", "radiogroup");
-  grid.setAttribute("aria-label", "Available stages");
+  grid.setAttribute("aria-label", t("stage.gridLabel", "Available stages"));
 
   for (const entry of entries) {
     if (entry.status === "error") {
-      grid.appendChild(buildErrorCard(entry));
+      const { card, messageElement } = buildErrorCard(entry);
+      errorMessagesByEntry.set(messageElement, entry.message);
+      grid.appendChild(card);
       continue;
     }
 
@@ -79,28 +99,54 @@ export function renderStageScreen(
   panel.className = "stage-screen";
 
   const heading = document.createElement("h2");
-  heading.textContent = "Choose your stage";
+  heading.textContent = t("stage.heading", "Choose your stage");
   panel.appendChild(heading);
   panel.appendChild(grid);
   panel.appendChild(continueButton);
 
   root.appendChild(panel);
   syncSelectionUI();
+
+  function retranslate(): void {
+    heading.textContent = t("stage.heading", "Choose your stage");
+    continueButton.textContent = t("stage.continue", "Continue");
+    grid.setAttribute("aria-label", t("stage.gridLabel", "Available stages"));
+    syncSelectionUI();
+    for (const [messageElement, message] of errorMessagesByEntry) {
+      messageElement.textContent = t(
+        "stage.unavailable",
+        "Unavailable: {{message}}",
+        {
+          message,
+        },
+      );
+    }
+  }
+
+  activeUnsubscribeByRoot.set(root, onLocaleChange(retranslate));
 }
 
-function buildEmptyState(): HTMLElement {
+function buildEmptyState(): { element: HTMLElement; retranslate: () => void } {
   const panel = document.createElement("wuik-panel");
   panel.className = "stage-screen__empty";
   const message = document.createElement("p");
-  message.textContent =
-    "No stages are available yet. Check back once the stage list has been configured.";
   panel.appendChild(message);
-  return panel;
+
+  function retranslate(): void {
+    message.textContent = t(
+      "stage.empty",
+      "No stages are available yet. Check back once the stage list has been configured.",
+    );
+  }
+  retranslate();
+
+  return { element: panel, retranslate };
 }
 
-function buildErrorCard(
-  entry: DiscoveredStage & { status: "error" },
-): HTMLElement {
+function buildErrorCard(entry: DiscoveredStage & { status: "error" }): {
+  card: HTMLElement;
+  messageElement: HTMLElement;
+} {
   const card = document.createElement("wuik-panel");
   card.className = "stage-screen__card stage-screen__card--error";
   card.setAttribute("aria-disabled", "true");
@@ -110,10 +156,12 @@ function buildErrorCard(
 
   const message = document.createElement("p");
   message.className = "stage-screen__error";
-  message.textContent = `Unavailable: ${entry.message}`;
+  message.textContent = t("stage.unavailable", "Unavailable: {{message}}", {
+    message: entry.message,
+  });
   card.appendChild(message);
 
-  return card;
+  return { card, messageElement: message };
 }
 
 function buildStageCard(entry: DiscoveredStage & { status: "ok" }): {
@@ -138,7 +186,7 @@ function buildStageCard(entry: DiscoveredStage & { status: "ok" }): {
   selectButton.setAttribute("role", "radio");
   selectButton.setAttribute("aria-checked", "false");
   selectButton.className = "stage-screen__select";
-  selectButton.textContent = "Select this stage";
+  selectButton.textContent = t("stage.select", "Select this stage");
   card.appendChild(selectButton);
 
   return { card, selectButton };
@@ -152,8 +200,17 @@ function buildPortrait(src: string, alt: string): HTMLImageElement {
   return portrait;
 }
 
+/**
+ * The picked-state checkmark ("✓") is appended here, in code, never
+ * embedded inside a catalog string — same convention as
+ * `selection/roster-screen.ts`'s `setPicked` (see `.vibe/decisions/006`).
+ */
 function setSelected(button: HTMLElement, selected: boolean): void {
-  button.textContent = selected ? "Selected ✓" : "Select this stage";
+  const label = t(
+    selected ? "stage.selected" : "stage.select",
+    selected ? "Selected" : "Select this stage",
+  );
+  button.textContent = selected ? `${label} ✓` : label;
   button.setAttribute("variant", selected ? "primary" : "secondary");
   button.setAttribute("aria-checked", String(selected));
 }

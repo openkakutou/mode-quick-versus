@@ -1,5 +1,6 @@
 import "@openkakutou/web-ui-kit";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initAppI18n } from "../i18n/i18n.ts";
 import type { DiscoveredStage } from "../stage/discovery.ts";
 import { renderStageScreen } from "./stage-screen.ts";
 
@@ -152,5 +153,66 @@ describe("renderStageScreen", () => {
     expect(
       root.querySelector(`img[src="stages/harbor/portrait.png"]`),
     ).toBeNull();
+  });
+
+  describe("live locale switching (backlog item 009)", () => {
+    afterEach(async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("re-translates the heading, Continue, and select labels in place without losing the current pick", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderStageScreen(root, [trainingRoom, harbor], { onContinue: vi.fn() });
+
+      selectButtonFor(root, "harbor").click();
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.querySelector("h2")?.textContent).toBe(
+          "Choisissez votre stage",
+        );
+      });
+
+      expect(continueButton(root).textContent).toBe("Continuer");
+      expect(selectButtonFor(root, "harbor").textContent).toBe("Choisi ✓");
+      expect(selectButtonFor(root, "training-room").textContent).toBe(
+        "Choisir ce stage",
+      );
+      // The selection itself must survive the locale switch untouched.
+      expect(selectButtonFor(root, "harbor").getAttribute("aria-checked")).toBe(
+        "true",
+      );
+      expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+    });
+
+    it("re-translates the empty-state message in place", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderStageScreen(root, [], { onContinue: vi.fn() });
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.textContent).toContain("Aucun stage n'est disponible");
+      });
+    });
+
+    it("re-translates an error card's prefix in place while keeping the raw message untouched", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderStageScreen(root, [corrupt], { onContinue: vi.fn() });
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(cardFor(root, "corrupt-stage").textContent).toContain(
+          "Indisponible",
+        );
+      });
+      expect(cardFor(root, "corrupt-stage").textContent).toContain(
+        "stage: line 3: malformed section header",
+      );
+    });
   });
 });

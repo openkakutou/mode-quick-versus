@@ -1,5 +1,6 @@
 import "@openkakutou/web-ui-kit";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initAppI18n } from "../i18n/i18n.ts";
 import type { DiscoveredCharacter } from "../roster/discovery.ts";
 import { renderRosterScreen } from "./roster-screen.ts";
 
@@ -157,5 +158,61 @@ describe("renderRosterScreen", () => {
 
     expect(root.querySelectorAll(".roster-screen__grid")).toHaveLength(1);
     expect(root.querySelector(`img[src="roster/kyo/portrait.png"]`)).toBeNull();
+  });
+
+  describe("live locale switching (backlog item 009)", () => {
+    afterEach(async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("re-translates the heading, Continue, and pick labels in place without losing either player's pick", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderRosterScreen(root, [ryu, kyo], { onContinue: vi.fn() });
+
+      player1ButtonFor(root, "ryu").click();
+      player2ButtonFor(root, "kyo").click();
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.querySelector("h2")?.textContent).toBe(
+          "Choisissez votre personnage",
+        );
+      });
+
+      expect(continueButton(root).textContent).toBe("Continuer");
+      expect(player1ButtonFor(root, "ryu").textContent).toBe("Joueur 1 ✓");
+      expect(player2ButtonFor(root, "kyo").textContent).toBe("Joueur 2 ✓");
+      expect(player2ButtonFor(root, "ryu").textContent).toBe("Joueur 2");
+      // Selections themselves must survive the locale switch untouched.
+      expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+    });
+
+    it("re-translates the empty-state message in place", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderRosterScreen(root, [], { onContinue: vi.fn() });
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(root.textContent).toContain("Aucun personnage n'est disponible");
+      });
+    });
+
+    it("re-translates an error card's prefix in place while keeping the raw message untouched", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderRosterScreen(root, [broken], { onContinue: vi.fn() });
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        expect(cardFor(root, "broken").textContent).toContain("Indisponible");
+      });
+      expect(cardFor(root, "broken").textContent).toContain(
+        "cns: line 3: malformed section header",
+      );
+    });
   });
 });
