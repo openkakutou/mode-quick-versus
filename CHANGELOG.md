@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-09
+
 ### Added
 
 - Localization (i18n): the character/roster selection, stage selection, and match setup screens are now available in English and French, with a language switcher in the toolbar that changes the displayed language instantly, without a page reload. The chosen language is detected from the browser by default and remembered the next time the app loads. Switching language never loses an in-progress pick (character, stage, round count, time limit). The in-match HUD and the not-yet-built round/match result screen are not covered by this change.
@@ -47,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.4.0...v0.5.0
