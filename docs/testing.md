@@ -35,6 +35,15 @@ Run the full suite with `npm test` (Vitest, jsdom environment). Every source fil
 
 `src/wasm/testdata/` holds minimal `.air`/`.sff`/`.cns` fixtures (copied from `character-viewer-web`, which itself copied them from the `character` repo's own test data) used by every test that exercises the real WASM module, so expected values come from actually running the module once against them rather than from the same mapping logic under test.
 
+## Visual regression tests (backlog item 011)
+
+`npm run test:visual` (Playwright, real headless Chromium, not jsdom) guards the roster and stage selection screens against unintended rendering changes — a category of regression the jsdom suite above can't catch, since jsdom never actually paints anything.
+
+- **`tests/visual/roster-stage.visual.spec.ts`** — three committed screenshot baselines: the roster grid with Player 1's character picked, the roster grid with Player 2's character picked, and the stage grid with a stage selected.
+- Served through a dedicated `vite.visual.config.ts` (extends the real `vite.config.ts` via `mergeConfig`) whose `publicDir` points at `tests/visual/fixtures/` instead of the real `public/`, since the roster/stage screens fetch a fixed-URL deploy-time manifest that ships empty in the real, committed `public/`. `npm run prepare-visual-fixtures` copies the downloaded `public/wasm/` build into that fixture tree first. See `.vibe/decisions/008-visual-regression-fixture-serving-strategy.md`.
+- Extends `web-ui-kit`'s shared Playwright visual-testing preset (`createVisualProjectConfig`), with a stricter diff threshold (`maxDiffPixelRatio: 0.005` vs. the shared default `0.02`) — confirmed by measurement that a single pick-button color regression sits under the shared default even scoped to one card's own screenshot.
+- Runs in CI (`.github/workflows/ci.yml`) on every push to `main` and every pull request: lint, then the visual suite only, uploading the diff as a build artifact on failure. The full `npm test` unit/smoke suite is not run in CI yet — several of those tests need the `engine` WASM module, which has no published release build asset (a separate, pre-existing gap, see the same decision above).
+
 ## Real-browser verification
 
 Every layer above is covered by Vitest/jsdom. Both selection screens have additionally been driven in a real headless-Chromium session against the running dev server — jsdom cannot fully substitute for a real browser check on a feature this visual, though no repeatable script for it is checked into this repo yet:

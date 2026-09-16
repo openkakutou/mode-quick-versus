@@ -82,6 +82,12 @@ Run the linter/formatter (auto-fixes issues in place):
 ```sh
 npm run lint
 ```
+
+Run the visual regression suite (requires the `character`/`stage` WASM builds already downloaded — see Installation above):
+
+```sh
+npm run test:visual
+```
 <!-- vibe:end:usage -->
 
 <!-- vibe:begin:docs-index -->
