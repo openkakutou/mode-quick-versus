@@ -1,0 +1,5 @@
+[Info]
+name = Training Room
+
+[BGDef]
+spr = training-room.sff

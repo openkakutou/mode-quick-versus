@@ -1,7 +1,14 @@
 node_modules/
 dist/
+dist-visual/
 *.local
 .DS_Store
 
 # Downloaded/locally-built WASM artifacts from character, stage, sff, and engine
 public/wasm/
+
+# Visual regression tests (backlog item 011): the fixture WASM copy is
+# prepared from public/wasm/ before each run, never committed; test-results/
+# holds Playwright's own failure diff/trace output.
+tests/visual/fixtures/wasm/
+test-results/

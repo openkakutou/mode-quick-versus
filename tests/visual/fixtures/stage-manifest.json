@@ -1,0 +1,9 @@
+[
+  {
+    "id": "training-room",
+    "portrait": "stage/portrait.png",
+    "files": {
+      "def": "stage/training-room.def"
+    }
+  }
+]

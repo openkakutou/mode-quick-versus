@@ -1,0 +1,24 @@
+[
+  {
+    "id": "fighter-a",
+    "portrait": "character/portrait-a.png",
+    "files": {
+      "def": "character/fighter-a.def",
+      "air": "character/fighter.air",
+      "sff": "character/fighter.sff",
+      "cns": "character/fighter.cns",
+      "cmd": "character/fighter.cmd"
+    }
+  },
+  {
+    "id": "fighter-b",
+    "portrait": "character/portrait-b.png",
+    "files": {
+      "def": "character/fighter-b.def",
+      "air": "character/fighter.air",
+      "sff": "character/fighter.sff",
+      "cns": "character/fighter.cns",
+      "cmd": "character/fighter.cmd"
+    }
+  }
+]

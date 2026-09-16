@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automated screenshot-comparison tests now guard the roster (character) selection screen and the stage selection screen against unintended visual regressions, run in CI on every change and failing the build if a real rendering difference is introduced.
+
 ## [0.7.0] - 2026-09-09
 
 ### Added
