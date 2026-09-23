@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 depends_on: [003]
 ---
 # In-Match HUD
@@ -25,3 +25,6 @@ Cross-repo blocker: needs `engine` item 001 (match state model) to exist and exp
 
 ## Blocked
 2026-08-31: `engine`'s exposed match state (`match.FighterState`: `Side`, `Position`, `Facing`, `Velocity`, `StateNo`, `Health`) and `round.Progress` cover health and round wins, but there is no power/super-meter concept anywhere in `engine` — not modeled in any Go type, not computed by `Tick`, not present in the WASM `tick`/`newMatch`/`resetRound` JSON contract (confirmed by a repo-wide search for "power"/"meter" turning up zero matches outside unrelated identifiers). This item's acceptance criterion "Power bar reflects `engine`'s live power/meter value" cannot be implemented against what `engine` currently exposes. `engine`'s own backlog is fully empty (every item done, `.vibe/backlog/` has no open items) — there is no existing engine item to point at as the blocker; a power/meter mechanic would need to be scoped as new engine work first. Lifebar-health-sync and round-display alone could be built, but the acceptance criteria as written are one coherent HUD, not independently splittable (per this skill's own scope-check: they're the same screen, not separately shippable capabilities) — implementing 4 of 5 criteria and silently dropping the power bar would misrepresent the item as done. Leaving `status: blocked` until `engine` models and exposes a power/meter value.
+
+## Unblocked
+2026-09-23: `engine#019` (Model And Expose Power/Meter System) shipped and published as `engine` `v2.4.0` (tag pushed, GitHub release created) — `match.FighterState`/the WASM `tick`/`newMatch`/`resetRound` JSON contract now carry each fighter's power/meter value (0–3000, via the new `PowerAdd` controller). Back to `status: todo`.
