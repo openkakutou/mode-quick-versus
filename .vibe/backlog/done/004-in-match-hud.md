@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 depends_on: [003]
 ---
 # In-Match HUD
@@ -8,11 +8,11 @@ depends_on: [003]
 Render the in-match heads-up display — each player's lifebar, power bar, and the round display (round number, wins so far) — continuously driven by live match state read from the `engine` WASM module. This repo has no separate `lifebar` parsing library org-wide, so lifebar layout/rendering logic is implemented directly here, mirroring `lifebar-viewer-web`'s in-app parsing approach rather than depending on a `lifebar` package that doesn't exist.
 
 ## Acceptance Criteria
-- [ ] Lifebars for both players update in sync with `engine`'s live health values as a match progresses
-- [ ] Power bar reflects `engine`'s live power/meter value
-- [ ] Round display reflects the current round number and each player's round wins
-- [ ] Malformed or unexpected match state from `engine` degrades the HUD to a clear error state instead of freezing or crashing the match
-- [ ] HUD rendering does not block or measurably slow down match simulation/input handling
+- [x] Lifebars for both players update in sync with `engine`'s live health values as a match progresses
+- [x] Power bar reflects `engine`'s live power/meter value
+- [x] Round display reflects the current round number and each player's round wins
+- [x] Malformed or unexpected match state from `engine` degrades the HUD to a clear error state instead of freezing or crashing the match
+- [x] HUD rendering does not block or measurably slow down match simulation/input handling
 
 ## Notes
 Cross-repo blocker: needs `engine` item 001 (match state model) to exist and expose the health/power/round fields this HUD reads. Also needs the lifebar-rendering approach mirrored from `lifebar-viewer-web`.
@@ -28,3 +28,6 @@ Cross-repo blocker: needs `engine` item 001 (match state model) to exist and exp
 
 ## Unblocked
 2026-09-23: `engine#019` (Model And Expose Power/Meter System) shipped and published as `engine` `v2.4.0` (tag pushed, GitHub release created) — `match.FighterState`/the WASM `tick`/`newMatch`/`resetRound` JSON contract now carry each fighter's power/meter value (0–3000, via the new `PowerAdd` controller). Back to `status: todo`.
+
+## Done
+2026-09-24: Implemented as a new `src/hud/` module (`hud-view-model.ts` for pure validation/derivation, `hud-renderer.ts` for the DOM). All five acceptance criteria met: lifebars and a power/meter bar for both players update every rendered frame the match simulates; the round display shows the round number, each player's wins, and the best-of; malformed/unexpected `engine` data degrades the whole HUD to one clear, translated error region (recovering automatically once data is valid again) without ever stopping match simulation or input handling, verified by a dedicated integration test and confirmed in a real running match. `engine` v2.4.0's real published WASM release was downloaded and used throughout (previously built locally, since `engine` had no release assets before this). See `.vibe/decisions/009` for the design rationale.
