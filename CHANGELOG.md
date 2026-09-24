@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-24
+
 ### Added
 
 - In-match HUD: both players now see a live lifebar and power/meter bar during a match, plus a round display showing the current round number, each player's round wins, and the configured best-of. Everything updates in sync with the match as it plays. If the combat engine ever reports match data the HUD can't understand, the HUD shows a clear "could not update" message instead of freezing or crashing the match itself.
@@ -59,7 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.0...v0.6.1
