@@ -47,5 +47,14 @@
     "directionLeft": "Gauche",
     "directionRight": "Droite",
     "gamepadNote": "Une manette connectée est utilisée automatiquement pour le joueur auquel elle est assignée (première connectée → Joueur 1, suivante → Joueur 2). Si elle se déconnecte en cours de match, ce joueur revient à ses commandes clavier ci-dessus."
+  },
+  "hud": {
+    "playerHealth": "Santé du joueur {{number}}",
+    "playerPower": "Puissance du joueur {{number}}",
+    "valueOfMax": "{{value}} / {{max}}",
+    "wins": "Victoires : {{count}}",
+    "roundInfo": "Round {{round}} · Meilleur des {{bestOf}}",
+    "roundAnnouncement": "Round {{round}} commencé. {{p1Wins}} - {{p2Wins}}.",
+    "error": "L'affichage du match n'a pas pu être mis à jour : {{error}}"
   }
 }

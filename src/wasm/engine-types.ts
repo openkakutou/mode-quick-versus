@@ -41,6 +41,16 @@ export interface FighterState {
   velocity: Velocity;
   stateNo: number;
   health: number;
+  /**
+   * The fighter's power/meter (super gauge) value, `[0, DefaultMaxPower]`
+   * (`engine`'s own `statemachine.DefaultMaxPower`, 3000 — not itself part
+   * of this JSON contract, see `hud/hud-view-model.ts`'s `MAX_POWER`).
+   * `engine`'s own `match.NewMatchState` always resets a caller-supplied
+   * `Power` to 0 at match/round start regardless of what value is sent, so
+   * this field is only ever meaningful on a response, never load-bearing on
+   * a request's `starting` fighters.
+   */
+  power: number;
 }
 
 /** The live state of a match between two fighters (`match.MatchState`). */

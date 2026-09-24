@@ -11,10 +11,10 @@ This project is in early-stage development. Available now:
 - Match rendering: once setup is confirmed, the match actually starts — both characters appear at their live position, playing their current animation, composited over the chosen stage's background, kept in sync as the match runs. A character or stage sprite that can't be shown falls back to a clear placeholder rather than a gap or a crash.
 - Player input: each player has their own default keyboard controls (shown on the match setup screen), and a connected gamepad is used automatically for whichever player it's assigned to — no setup required. If a gamepad disconnects mid-match, that player falls back to their keyboard controls instead of freezing.
 - Localization: the character selection, stage selection, and match setup screens are available in English and French, with a language switcher that changes the displayed language instantly. The chosen language is remembered the next time the app loads.
+- In-match HUD: both players' lifebar and power/meter bar update live throughout the match, alongside the current round number, each player's round wins, and the configured best-of. If the match's underlying data ever becomes unreadable, the HUD shows a clear message instead of freezing or crashing the match.
 
 Planned:
 
-- In-match HUD: lifebar, power bar, and round display driven by live `engine` match state
 - Round/match result screen with rematch and back-to-select
 - A minimal first-pass CPU opponent for single-player
 - Release packaging as a static, deployable build
@@ -49,6 +49,12 @@ Download a specific version of the `stage` library's WebAssembly build (needed t
 
 ```sh
 npm run wasm:download:stage -- v0.11.1
+```
+
+Download a specific version of the `engine` library's WebAssembly build (needed to run a match):
+
+```sh
+npm run wasm:download:engine -- v2.4.0
 ```
 <!-- vibe:end:install -->
 

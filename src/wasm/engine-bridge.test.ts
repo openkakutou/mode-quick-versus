@@ -160,6 +160,9 @@ function startingFighter(side: 0 | 1, health: number): FighterState {
     velocity: { x: 0, y: 0 },
     stateNo: 0,
     health,
+    // engine's own match.NewMatchState always resets Power to 0 at match
+    // start regardless of what a request sends -- asserted below.
+    power: 999,
   };
 }
 
@@ -196,6 +199,15 @@ describe("newMatch", () => {
     expect(result.data.progress.bestOf).toBe(3);
     expect(result.data.animations[0]).toEqual({ animNo: 0, animTime: 0 });
     expect(result.data.animations[1]).toEqual({ animNo: 0, animTime: 0 });
+  });
+
+  it("resets both fighters' power to 0 at match start, regardless of the request's own value", async () => {
+    const result = await newMatch(buildRequest(), testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.data.state.fighters[0].power).toBe(0);
+    expect(result.data.state.fighters[1].power).toBe(0);
   });
 
   it("returns a typed error instead of throwing for an invalid bestOf", async () => {

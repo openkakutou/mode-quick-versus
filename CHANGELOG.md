@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In-match HUD: both players now see a live lifebar and power/meter bar during a match, plus a round display showing the current round number, each player's round wins, and the configured best-of. Everything updates in sync with the match as it plays. If the combat engine ever reports match data the HUD can't understand, the HUD shows a clear "could not update" message instead of freezing or crashing the match itself.
+
 ## [0.8.0] - 2026-09-17
 
 ### Added

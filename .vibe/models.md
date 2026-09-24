@@ -81,10 +81,17 @@ Defined in: `src/wasm/stage-types.ts`
 | Field | Type | Notes |
 |---|---|---|
 | programs | `[FighterProgram, FighterProgram]` | Each fighter's state defs (keyed by number), animations, and command file |
-| starting | `[FighterState, FighterState]` | Each fighter's starting position, facing, state number, health |
+| starting | `[FighterState, FighterState]` | Each fighter's starting position, facing, state number, health, power (always sent as 0 — `engine` itself always resets a caller-supplied power to 0 at match/round start) |
 | roundTimer, bestOf, bounds, gravity, comboWindow | number / `StageBoundaries` / number | Match-level simulation config |
 | matchId, inputs | number / `[TickInput, TickInput]` | `TickRequest` only — the session to advance and this tick's raw input |
-Defined in: `src/wasm/engine-types.ts`; assembled by `src/rendering/match-config.ts`'s `buildNewMatchRequest`
+Defined in: `src/wasm/engine-types.ts`; assembled by `src/rendering/match-config.ts`'s `buildNewMatchRequest`. `FighterState.power` (`[0, 3000]`, `engine`'s own hardcoded power/meter cap, not itself part of this JSON contract — see `HudViewModel` below) is read live from every `tick`/`newMatch` response by the HUD.
+
+## HudViewModel (in-match HUD)
+| Field | Type | Notes |
+|---|---|---|
+| fighters | `[HudFighterView, HudFighterView]` | Each `{ healthPercent, powerPercent }` — clamped to `[0, 100]` against the app's placeholder health/power maxima |
+| roundInfo | `{ round, wins: [number, number], bestOf }` | Sourced from `engine`'s `MatchState.round` and `Progress.wins`/`bestOf` |
+Defined in: `src/hud/hud-view-model.ts`; derived from `engine`'s raw, untrusted `MatchState`/`Progress` by `deriveHudViewModel`, which returns a typed error instead of a `HudViewModel` for any missing/invalid field (see `.vibe/decisions/009`).
 
 ## CommandFile
 | Field | Type | Notes |

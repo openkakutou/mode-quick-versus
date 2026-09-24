@@ -47,5 +47,14 @@
     "directionLeft": "Left",
     "directionRight": "Right",
     "gamepadNote": "A connected gamepad is used automatically for whichever player it's assigned to (first connected → Player 1, next → Player 2). If it disconnects mid-match, that player falls back to their keyboard controls above."
+  },
+  "hud": {
+    "playerHealth": "Player {{number}} health",
+    "playerPower": "Player {{number}} power",
+    "valueOfMax": "{{value}} / {{max}}",
+    "wins": "Wins: {{count}}",
+    "roundInfo": "Round {{round}} · Best of {{bestOf}}",
+    "roundAnnouncement": "Round {{round}} started. {{p1Wins}} - {{p2Wins}}.",
+    "error": "The match display could not be updated: {{error}}"
   }
 }

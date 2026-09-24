@@ -27,3 +27,11 @@ _Sources: `src/input/tick-input-source.ts`, `src/setup/setup-screen.ts`_
 ## Placeholder sprite
 The fixed visual fallback drawn in place of a fighter's or a stage layer's sprite whenever its reference fails to resolve against the loaded sheet — one shared visual treatment, shown instead of a crash or a blank gap. Distinct from a sprite reference that legitimately draws nothing (a blank `.air` frame, or a stage `"anim"` element with no matching animation block), which is not an error and gets no placeholder at all.
 _Sources: `src/rendering/scene-composition.ts`_
+
+## In-match HUD
+The heads-up display shown throughout a match: each player's lifebar and power/meter bar, plus the round display (current round number, each player's round wins, and the configured best-of). Driven live by `engine`'s per-tick match state; if that state is ever malformed or unexpected, the HUD shows one clear error message instead of a broken bar or a frozen/crashed match.
+_Sources: `src/hud/hud-view-model.ts`, `src/hud/hud-renderer.ts`_
+
+## Power / meter
+A fighter's super gauge value, gained and spent during a match, shown as its own bar in the in-match HUD alongside the lifebar. Reported live by `engine` as a raw number; this app renders it as a percentage of a fixed placeholder cap, since `engine` does not itself publish that cap as part of its match-state contract.
+_Sources: `src/hud/hud-view-model.ts`, `src/rendering/match-config.ts`_

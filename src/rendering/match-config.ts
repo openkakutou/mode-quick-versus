@@ -21,6 +21,15 @@ export const TICK_RATE_HZ = 60;
 /** Placeholder starting health for both fighters. `character`'s own read-path data model has no life/health total yet (not modeled anywhere org-wide) — see the ADR referenced above. */
 export const DEFAULT_HEALTH = 1000;
 
+/**
+ * Placeholder power/meter cap mirroring `engine`'s own hardcoded
+ * `statemachine.DefaultMaxPower` (3000): the WASM `tick`/`newMatch` JSON
+ * contract carries each fighter's live `power` value but never its cap, so
+ * this app must know the same ceiling independently to render a meaningful
+ * power bar (`hud/hud-view-model.ts`). See `.vibe/decisions/009`.
+ */
+export const MAX_POWER = 3000;
+
 /** Placeholder per-tick gravity accel, applied while airborne. No real character/stage constants source exists yet. */
 export const DEFAULT_GRAVITY = 0.5;
 
@@ -105,7 +114,9 @@ export function resolveStageBoundaries(stage: StageSummary): StageBoundaries {
  * stage center, facing each other, grounded (`y: 0`), at
  * `DEFAULT_HEALTH`. The standard `STARTING_OFFSET` is clamped to the
  * stage's own boundaries so a narrow stage never starts a fighter outside
- * its own movable range.
+ * its own movable range. `power` is sent as 0 — `engine`'s own
+ * `match.NewMatchState` always resets it to 0 regardless of what a request
+ * sends, so this is documentation of that fact, not load-bearing.
  */
 export function buildStartingFighters(
   bounds: StageBoundaries,
@@ -120,6 +131,7 @@ export function buildStartingFighters(
     velocity: { x: 0, y: 0 },
     stateNo: 0,
     health: DEFAULT_HEALTH,
+    power: 0,
   };
   const p2: FighterState = {
     side: 1,
@@ -128,6 +140,7 @@ export function buildStartingFighters(
     velocity: { x: 0, y: 0 },
     stateNo: 0,
     health: DEFAULT_HEALTH,
+    power: 0,
   };
   return [p1, p2];
 }

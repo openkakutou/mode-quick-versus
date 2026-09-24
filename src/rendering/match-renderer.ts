@@ -1,3 +1,4 @@
+import { type Hud, createHud } from "../hud/hud-renderer.ts";
 import {
   type InputSourceKind,
   type TickInputPair,
@@ -360,6 +361,11 @@ export async function renderMatch(
     deps.drawScene(canvas, plan);
   }
 
+  // Created and populated before the first drawn frame, so the HUD never
+  // shows blank/zero values even for one frame -- see `.vibe/decisions/009`.
+  const hud: Hud = createHud();
+  hud.update(created.data.state, created.data.progress);
+
   const initialFrames = await resolveFighterSprites(created.data.animations);
   await resolveStageSprites();
   drawCurrentState(
@@ -392,7 +398,7 @@ export async function renderMatch(
   });
   renderInputStatus();
 
-  root.append(canvas, liveRegion, inputStatus);
+  root.append(hud.element, canvas, liveRegion, inputStatus);
   canvas.focus();
   liveRegion.textContent = "Match started";
 
@@ -407,12 +413,18 @@ export async function renderMatch(
   let latestFighterStates: readonly [FighterSnapshot, FighterSnapshot] =
     snapshotFighters(created.data.state.fighters);
   let latestAnimations = created.data.animations;
+  // Kept distinct from `latestFighterStates` (a position/facing-only
+  // snapshot `scene-composition.ts` needs): the HUD needs the fighters'
+  // full state (health, power), which the canvas-drawing path never reads.
+  let latestState = created.data.state;
+  let latestProgress = created.data.progress;
 
   function stop(): void {
     if (stopped) return;
     stopped = true;
     if (rafHandle !== null) deps.cancelAnimationFrame(rafHandle);
     inputSource.dispose();
+    hud.dispose();
     deps.closeMatch(matchId).catch(() => {
       // A failure to release the session is not user-visible — the
       // session simply stays resident for the life of the WASM instance,
@@ -439,6 +451,8 @@ export async function renderMatch(
       }
       latestFighterStates = snapshotFighters(result.data.state.fighters);
       latestAnimations = result.data.animations;
+      latestState = result.data.state;
+      latestProgress = result.data.progress;
       stageElapsedTicks += 1;
     }
     return true;
@@ -469,6 +483,18 @@ export async function renderMatch(
       await resolveStageSprites();
       if (stopped) return;
       drawCurrentState(latestFighterStates, frames);
+      // Same cadence as drawCurrentState above -- once per rendered frame
+      // that actually simulated, never once per tick during a catch-up
+      // burst (see .vibe/decisions/009). update() is guarded internally
+      // and never throws, but a narrow try/catch here is extra insurance:
+      // a HUD-only failure must never reach runTicks/stop() or interrupt
+      // the render loop, per the real-time-rendering consultation.
+      try {
+        hud.update(latestState, latestProgress);
+      } catch {
+        // Swallowed deliberately -- a HUD rendering defect degrades the
+        // HUD, never match simulation/input handling.
+      }
     }
 
     if (!stopped) {

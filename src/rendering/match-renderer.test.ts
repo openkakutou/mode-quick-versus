@@ -92,6 +92,7 @@ function newMatchResponse(matchId = 1): EngineResult<NewMatchResponseData> {
             velocity: { x: 0, y: 0 },
             stateNo: 0,
             health: 1000,
+            power: 0,
           },
           {
             side: 1,
@@ -100,6 +101,7 @@ function newMatchResponse(matchId = 1): EngineResult<NewMatchResponseData> {
             velocity: { x: 0, y: 0 },
             stateNo: 0,
             health: 1000,
+            power: 0,
           },
         ],
       },
@@ -198,7 +200,7 @@ describe("renderMatch", () => {
     expect(canvas).not.toBeNull();
     expect(canvas?.width).toBe(400);
     expect(canvas?.height).toBe(240);
-    const liveRegion = root.querySelector("[aria-live]");
+    const liveRegion = root.querySelector(".match-renderer__announcement");
     expect(liveRegion?.textContent).toContain("Match started");
   });
 
@@ -434,5 +436,115 @@ describe("renderMatch", () => {
     onSourceChange?.(0, "gamepad");
 
     expect(status?.textContent).toContain("Gamepad");
+  });
+
+  describe("in-match HUD (backlog item 004)", () => {
+    it("mounts the HUD before the canvas, already populated with the match's starting health/round/wins", async () => {
+      const root = document.createElement("div");
+      const options = baseOptions();
+
+      await renderMatch(root, baseInput(), options);
+
+      const hud = root.querySelector(".hud");
+      if (!hud) throw new Error("expected the HUD to be mounted");
+      const canvas = root.querySelector("canvas");
+      if (!canvas) throw new Error("expected the canvas to be mounted");
+      // The HUD must precede the canvas in the DOM (see .vibe/decisions/009).
+      expect(
+        hud.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      const p1Health = root.querySelector(".hud__health--1");
+      expect(p1Health?.getAttribute("aria-valuenow")).toBe("1000");
+      const roundBlock = root.querySelector(".hud__round");
+      expect(roundBlock?.textContent).toContain("1");
+    });
+
+    it("updates the HUD once per simulated frame, in sync with the tick loop", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const damagedTick = vi.fn(async () => {
+        const base = tickResponse();
+        if (!base.ok) throw new Error("expected an ok result");
+        return {
+          ok: true as const,
+          data: {
+            ...base.data,
+            state: {
+              ...base.data.state,
+              fighters: [
+                { ...base.data.state.fighters[0], health: 640 },
+                base.data.state.fighters[1],
+              ] as [
+                (typeof base.data.state.fighters)[0],
+                (typeof base.data.state.fighters)[1],
+              ],
+            },
+          },
+        };
+      });
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: damagedTick,
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(
+          root.querySelector(".hud__health--1")?.getAttribute("aria-valuenow"),
+        ).toBe("640");
+      });
+    });
+
+    it("degrades only the HUD to its error state on malformed match state, without stopping the match or the render loop", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const malformedTick = vi.fn(async () => {
+        const base = tickResponse();
+        if (!base.ok) throw new Error("expected an ok result");
+        return {
+          ok: true as const,
+          data: {
+            ...base.data,
+            // Position/facing/stateNo (what canvas rendering reads) stay
+            // valid -- only health is malformed, the realistic shape of a
+            // HUD-only data problem per .vibe/decisions/009's scope (the
+            // HUD validates its own health/power/round/wins fields; it is
+            // not responsible for the position/facing fields rendering
+            // already trusts, backlog item 005's own pre-existing scope).
+            state: {
+              ...base.data.state,
+              fighters: [
+                { ...base.data.state.fighters[0], health: Number.NaN },
+                base.data.state.fighters[1],
+              ] as [
+                (typeof base.data.state.fighters)[0],
+                (typeof base.data.state.fighters)[1],
+              ],
+            },
+          },
+        };
+      });
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: malformedTick,
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(root.querySelector(".hud__error")?.hasAttribute("hidden")).toBe(
+          false,
+        );
+      });
+      // The match/render loop itself is unaffected by the HUD-only failure.
+      expect(options.cancelAnimationFrame).not.toHaveBeenCalled();
+      expect(root.querySelector("canvas")).not.toBeNull();
+      expect(root.querySelector(".match-renderer__status")).toBeNull();
+    });
   });
 });
