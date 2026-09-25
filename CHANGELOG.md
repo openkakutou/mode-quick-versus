@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-25
+
 ### Added
 
 - Round and match results: when a round ends, a result panel shows the round winner (or a draw) and automatically continues to the next round after a short countdown. When the match itself ends, a result panel shows the overall winner (or a draw) with two choices: "Rematch" (instantly replays the match with the same characters, stage, and settings) or "Back to select" (returns to character selection). An unexpected or ambiguous match outcome always resolves to a clear result instead of leaving the screen stuck.
@@ -66,7 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.6.1...v0.7.0
