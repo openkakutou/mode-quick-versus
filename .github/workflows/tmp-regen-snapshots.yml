@@ -1,0 +1,47 @@
+name: Temp Regenerate Snapshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regen:
+    # Same pinned container image as deploy-pages.yml — a baseline
+    # regenerated anywhere else (bare ubuntu-24.04, a local machine) doesn't
+    # reliably match what that workflow's own container renders. See
+    # backlog item 014.
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e # v1.62.1-noble
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download character WASM release
+        run: npm run wasm:download -- v0.8.0
+
+      - name: Download stage WASM release
+        run: npm run wasm:download:stage -- v0.12.0
+
+      - name: Prepare visual test fixtures
+        run: npm run prepare-visual-fixtures
+
+      - name: Regenerate visual snapshots
+        run: npm run test:visual:update
+
+      - name: Upload regenerated snapshots
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: regenerated-snapshots
+          path: tests/visual/**/*.png
+          retention-days: 1
