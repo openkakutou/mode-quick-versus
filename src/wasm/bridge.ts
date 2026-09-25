@@ -146,6 +146,29 @@ export function resetWasmBridgeForTests(): void {
 }
 
 /**
+ * Runs `ensureGoRuntimeReady`, converting a rejected promise (a missing
+ * `character.wasm`/`wasm_exec.js` asset, or a version-mismatched/corrupt
+ * binary `WebAssembly.instantiate` can't load) into the same typed
+ * `{ok:false, error}` shape every other failure in this bridge already
+ * returns — this module never throws, matching `.vibe/index.md`'s
+ * documented "typed loader/caller never throwing" pattern.
+ */
+async function ensureGoRuntimeReadyOrError(
+  options: WasmBridgeOptions,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await ensureGoRuntimeReady(options);
+    return { ok: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: `character WASM module failed to load: ${message}`,
+    };
+  }
+}
+
+/**
  * Loads a character from raw `.def`/`.air`/`.sff`/`.cns` file bytes via the
  * `character` WASM module, returning a typed result instead of throwing on
  * malformed/missing input. Only the `name` field is mapped out of the full
@@ -158,7 +181,8 @@ export async function loadCharacter(
   cnsBytes: Uint8Array,
   options: WasmBridgeOptions = {},
 ): Promise<CharacterResult> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
 
   const raw = getOpenKakutouCharacter().load(
     defBytes,
@@ -213,7 +237,8 @@ export async function resolveSprites(
   overrideBytes: Uint8Array | null = null,
   options: WasmBridgeOptions = {},
 ): Promise<SpritePixelResult[]> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return requests.map(() => ({ ok: false, error: ready.error }));
 
   const raw = getOpenKakutouCharacter().resolveSprites(
     sffBytes,
@@ -259,7 +284,8 @@ export async function loadCmd(
   cmdBytes: Uint8Array,
   options: WasmBridgeOptions = {},
 ): Promise<CommandFileResult> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
 
   const raw = getOpenKakutouCharacter().loadCmd(cmdBytes);
 

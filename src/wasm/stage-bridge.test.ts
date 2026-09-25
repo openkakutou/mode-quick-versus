@@ -208,3 +208,57 @@ describe("resolveAnimationFrames", () => {
     expect(result.sprites).toEqual([]);
   });
 });
+
+describe("WASM runtime load failures", () => {
+  it("loadStage returns a typed error instead of rejecting when stage-wasm_exec.js fails to fetch", async () => {
+    const result = await loadStage(
+      textBytes("[Info]\nname = Broken Runtime\n"),
+      {
+        fetchWasmExecSource: async () => {
+          throw new Error("404 Not Found");
+        },
+        fetchWasmBytes: testOptions.fetchWasmBytes,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("404 Not Found");
+  });
+
+  it("resolveAnimationFrames returns a typed error instead of rejecting when stage.wasm is not valid WASM", async () => {
+    const result = await resolveAnimationFrames(
+      [{ animation: null, elapsedTicks: 0 }],
+      {
+        fetchWasmExecSource: testOptions.fetchWasmExecSource,
+        fetchWasmBytes: async () => new Uint8Array(),
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+
+  it("recovers on a later call after a failed instantiation attempt", async () => {
+    const failed = await loadStage(
+      textBytes("[Info]\nname = First Attempt\n"),
+      {
+        fetchWasmExecSource: async () => {
+          throw new Error("temporary outage");
+        },
+        fetchWasmBytes: testOptions.fetchWasmBytes,
+      },
+    );
+    expect(failed.ok).toBe(false);
+
+    const recovered = await loadStage(
+      textBytes("[Info]\nname = Second Attempt\n\n[BGDef]\nspr = stage0.sff\n"),
+      testOptions,
+    );
+
+    expect(recovered.ok).toBe(true);
+    if (!recovered.ok) throw new Error("expected an ok result");
+    expect(recovered.stage.name).toBe("Second Attempt");
+  });
+});

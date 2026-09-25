@@ -15,9 +15,11 @@ This project is in early-stage development. Available now:
 - Round and match results: when a round ends, a clear result appears showing the round winner (or a draw) and automatically continues to the next round after a short countdown — no click needed. When the match itself ends, a result screen shows the overall winner (or a draw) with two choices: instantly rematch with the same characters, stage, and settings, or return to character selection.
 - Single-player mode: a "Player 2 Control" choice on the match setup screen lets one player face a computer-controlled opponent instead of a second human — a minimal first pass, not a full AI, that moves toward its opponent and attacks on its own.
 
+- Automatic web publishing: every update to the main line is tested, checked, built, and published live once everything passes, with no manual step. If a character, stage, or match engine module fails to load at runtime, the affected screen shows a clear message instead of a blank page.
+
 Planned:
 
-- Release packaging as a static, deployable build
+- Native Windows/Mac/Linux/Android build (see [docs/deployment.md](docs/deployment.md))
 <!-- vibe:end:features -->
 
 <!-- vibe:begin:install -->
@@ -98,5 +100,6 @@ npm run test:visual
 
 <!-- vibe:begin:docs-index -->
 - [docs/architecture.md](docs/architecture.md) — how the app is put together: modules, data flow, and the roster/stage manifests.
+- [docs/deployment.md](docs/deployment.md) — how the web build is published to GitHub Pages, and the current status of the native Windows/Mac/Linux/Android build.
 - [docs/testing.md](docs/testing.md) — what the test suite covers and how to run it.
 <!-- vibe:end:docs-index -->

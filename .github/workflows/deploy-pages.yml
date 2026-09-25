@@ -1,0 +1,118 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Runs inside Playwright's own published image rather than pinning the
+    # bare runner OS and installing Chromium onto it separately: the image
+    # bundles a matching Chromium + fonts for this exact `@playwright/test`
+    # version, so a baseline regenerated through this same image always
+    # matches what CI renders — same rationale, same pinned tag, as the
+    # sibling `character-viewer-web`/`stage-viewer-web`/etc. repos' own
+    # `deploy-pages.yml`. Pinned by digest, tag `v1.62.1-noble` — bump both
+    # together with the `@playwright/test` version in package.json, and
+    # regenerate every visual baseline through the new image before merging.
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e # v1.62.1-noble
+    steps:
+      # Actions are pinned to a commit SHA, not a floating tag — matches
+      # this org's existing CI convention (see web-ui-kit's verify.yml).
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pinned exact release tags, one download per WASM dependency this app
+      # actually loads client-side — see this repo's own CLAUDE.md. `sff` is
+      # deliberately not downloaded here: this app never loads a separate
+      # `sff.wasm` module of its own, `.sff` sprite-sheet bytes are only ever
+      # forwarded as plain data to the `character`/`stage` bridges' own
+      # calls (see `.vibe/decisions/011`). Bumped as a follow-up of each
+      # producer's own `/vibe:release`, per roadmap's
+      # `.vibe/decisions/016-wasm-version-pinning-push-based-propagation.md`
+      # — kept identical to `ci.yml`'s own character/stage pins so the two
+      # workflows never test/deploy a different WASM combination.
+      - name: Download character WASM release
+        run: npm run wasm:download -- v0.8.0
+
+      - name: Download stage WASM release
+        run: npm run wasm:download:stage -- v0.12.0
+
+      # `engine` publishes release build assets as of v2.4.0 (it did not
+      # when `ci.yml` was first written — see that file's own comment) so
+      # the full test suite, including every `engine`-dependent test, can
+      # now run here before anything is published.
+      - name: Download engine WASM release
+        run: npm run wasm:download:engine -- v2.4.0
+
+      # Full suite gate, ahead of Lint/Build/Visual below: a broken build
+      # must never reach `deploy`, regardless of what `ci.yml` on its own
+      # pull-request-time triggers happens to cover.
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npx biome check .
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare visual test fixtures
+        run: npm run prepare-visual-fixtures
+
+      # Own step (backlog item 011 AC) — real browser screenshot comparison
+      # against the committed baselines in tests/visual/**/*-snapshots/, not
+      # part of the jsdom-based `npm test` suite above. A diff fails this
+      # step, which fails this job, which blocks the `deploy` job below
+      # (`needs: build`) the same way a failing Test/Lint/Build step does.
+      - name: Visual regression tests
+        run: npm run test:visual
+
+      - name: Upload visual regression diff
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-regression-diff
+          path: test-results/
+          retention-days: 14
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5

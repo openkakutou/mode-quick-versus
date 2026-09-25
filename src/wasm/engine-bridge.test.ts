@@ -363,3 +363,46 @@ describe("closeMatch", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe("WASM runtime load failures", () => {
+  it("newMatch returns a typed error instead of rejecting when engine-wasm_exec.js fails to fetch", async () => {
+    const result = await newMatch(buildRequest(), {
+      fetchWasmExecSource: async () => {
+        throw new Error("404 Not Found");
+      },
+      fetchWasmBytes: testOptions.fetchWasmBytes,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("404 Not Found");
+  });
+
+  it("tick returns a typed error instead of rejecting when engine.wasm is not valid WASM", async () => {
+    const result = await tick(
+      { matchId: 0, inputs: [{}, {}] },
+      {
+        fetchWasmExecSource: testOptions.fetchWasmExecSource,
+        fetchWasmBytes: async () => new Uint8Array(),
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+
+  it("recovers on a later call after a failed instantiation attempt", async () => {
+    const failed = await newMatch(buildRequest(), {
+      fetchWasmExecSource: async () => {
+        throw new Error("temporary outage");
+      },
+      fetchWasmBytes: testOptions.fetchWasmBytes,
+    });
+    expect(failed.ok).toBe(false);
+
+    const recovered = await newMatch(buildRequest(), testOptions);
+
+    expect(recovered.ok).toBe(true);
+  });
+});

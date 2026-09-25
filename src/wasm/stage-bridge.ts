@@ -148,6 +148,26 @@ export function resetStageWasmBridgeForTests(): void {
 }
 
 /**
+ * Runs `ensureGoRuntimeReady`, converting a rejected promise (a missing
+ * `stage.wasm`/`stage-wasm_exec.js` asset, or a version-mismatched/corrupt
+ * binary `WebAssembly.instantiate` can't load) into the same typed
+ * `{ok:false, error}` shape every other failure in this bridge already
+ * returns — this module never throws, matching `.vibe/index.md`'s
+ * documented "typed loader/caller never throwing" pattern.
+ */
+async function ensureGoRuntimeReadyOrError(
+  options: StageWasmBridgeOptions,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await ensureGoRuntimeReady(options);
+    return { ok: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `stage WASM module failed to load: ${message}` };
+  }
+}
+
+/**
  * Loads a stage from raw `.def` file bytes via the `stage` WASM module,
  * returning a typed result instead of throwing on malformed input. `name`,
  * `bgDef`, `elements`, `animations`, and `stageBoundaries` are mapped out
@@ -160,7 +180,8 @@ export async function loadStage(
   defBytes: Uint8Array,
   options: StageWasmBridgeOptions = {},
 ): Promise<StageResult> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
 
   const raw = getOpenKakutouStage().load(defBytes);
 
@@ -214,7 +235,8 @@ export async function resolveSprites(
   overrideBytes: Uint8Array | null = null,
   options: StageWasmBridgeOptions = {},
 ): Promise<StageSpritePixelResult[]> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return requests.map(() => ({ ok: false, error: ready.error }));
 
   const raw = getOpenKakutouStage().resolveSprites(
     sffBytes,
@@ -263,7 +285,8 @@ export async function resolveAnimationFrames(
   requests: readonly ResolveAnimationFrameRequest[],
   options: StageWasmBridgeOptions = {},
 ): Promise<{ ok: true; sprites: SpriteRef[] } | { ok: false; error: string }> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
 
   const raw = getOpenKakutouStage().resolveAnimationFrames(
     JSON.stringify(requests),

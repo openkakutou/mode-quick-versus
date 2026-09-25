@@ -131,6 +131,29 @@ export function resetEngineWasmBridgeForTests(): void {
   readyPromise = null;
 }
 
+/**
+ * Runs `ensureGoRuntimeReady`, converting a rejected promise (a missing
+ * `engine.wasm`/`engine-wasm_exec.js` asset, or a version-mismatched/corrupt
+ * binary `WebAssembly.instantiate` can't load) into the same typed
+ * `{ok:false, error}` shape every other failure in this bridge already
+ * returns — this module never throws, matching `.vibe/index.md`'s
+ * documented "typed loader/caller never throwing" pattern.
+ */
+async function ensureGoRuntimeReadyOrError(
+  options: EngineWasmBridgeOptions,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await ensureGoRuntimeReady(options);
+    return { ok: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: `engine WASM module failed to load: ${message}`,
+    };
+  }
+}
+
 /** Parses a raw `{data, error}` envelope into a typed discriminated-union result, never throwing on malformed JSON. */
 function parseEnvelope<T>(
   raw: RawCallResult,
@@ -166,7 +189,8 @@ export async function newMatch(
   request: NewMatchRequest,
   options: EngineWasmBridgeOptions = {},
 ): Promise<EngineResult<NewMatchResponseData>> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
   const raw = getOpenKakutouEngine().newMatch(JSON.stringify(request));
   return parseEnvelope<NewMatchResponseData>(raw, "newMatch");
 }
@@ -180,7 +204,8 @@ export async function tick(
   request: TickRequest,
   options: EngineWasmBridgeOptions = {},
 ): Promise<EngineResult<TickResponseData>> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
   const raw = getOpenKakutouEngine().tick(JSON.stringify(request));
   return parseEnvelope<TickResponseData>(raw, "tick");
 }
@@ -198,7 +223,8 @@ export async function resetRound(
   request: ResetRoundRequest,
   options: EngineWasmBridgeOptions = {},
 ): Promise<EngineResult<ResetRoundResponseData>> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
   const raw = getOpenKakutouEngine().resetRound(JSON.stringify(request));
   return parseEnvelope<ResetRoundResponseData>(raw, "resetRound");
 }
@@ -208,7 +234,8 @@ export async function closeMatch(
   matchId: number,
   options: EngineWasmBridgeOptions = {},
 ): Promise<EngineResult<Record<string, never>>> {
-  await ensureGoRuntimeReady(options);
+  const ready = await ensureGoRuntimeReadyOrError(options);
+  if (!ready.ok) return ready;
   const raw = getOpenKakutouEngine().closeMatch(JSON.stringify({ matchId }));
   return parseEnvelope<Record<string, never>>(raw, "closeMatch");
 }

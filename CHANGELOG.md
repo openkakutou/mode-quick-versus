@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Web release packaging: the production build now publishes automatically to GitHub Pages on every update to the main line, after the full test suite, lint, and a build all pass. If a character, stage, or match engine module fails to load at runtime (a missing or incompatible file), the affected screen now shows a clear message instead of a blank page or a silent failure.
+
 ## [0.10.0] - 2026-09-25
 
 ### Added

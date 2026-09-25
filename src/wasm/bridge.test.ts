@@ -264,3 +264,90 @@ describe("loadCmd", () => {
     expect(loaded.ok).toBe(true);
   });
 });
+
+describe("WASM runtime load failures", () => {
+  it("loadCharacter returns a typed error instead of rejecting when wasm_exec.js fails to fetch", async () => {
+    const result = await loadCharacter(
+      textBytes("[Info]\nname = Broken Runtime\n"),
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      {
+        fetchWasmExecSource: async () => {
+          throw new Error("404 Not Found");
+        },
+        fetchWasmBytes: testOptions.fetchWasmBytes,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("404 Not Found");
+  });
+
+  it("resolveSprites returns a typed error for every request instead of rejecting when character.wasm is not valid WASM", async () => {
+    const results = await resolveSprites(
+      sffBytes,
+      [
+        [0, 0],
+        [1, 1],
+      ],
+      null,
+      {
+        fetchWasmExecSource: testOptions.fetchWasmExecSource,
+        // A version-mismatched or truncated binary fails the same way an
+        // empty/corrupt download would: `WebAssembly.instantiate` rejects
+        // rather than the character WASM module ever registering itself.
+        fetchWasmBytes: async () => new Uint8Array(),
+      },
+    );
+
+    expect(results).toHaveLength(2);
+    for (const result of results) {
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("expected an error result");
+      expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("loadCmd returns a typed error instead of rejecting when the wasm binary fails to fetch", async () => {
+    const result = await loadCmd(cmdBytes, {
+      fetchWasmExecSource: testOptions.fetchWasmExecSource,
+      fetchWasmBytes: async () => {
+        throw new Error("network error");
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("network error");
+  });
+
+  it("recovers on a later call after a failed instantiation attempt", async () => {
+    const failed = await loadCharacter(
+      textBytes("[Info]\nname = First Attempt\n"),
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      {
+        fetchWasmExecSource: async () => {
+          throw new Error("temporary outage");
+        },
+        fetchWasmBytes: testOptions.fetchWasmBytes,
+      },
+    );
+    expect(failed.ok).toBe(false);
+
+    const recovered = await loadCharacter(
+      textBytes("[Info]\nname = Second Attempt\n"),
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+
+    expect(recovered.ok).toBe(true);
+    if (!recovered.ok) throw new Error("expected an ok result");
+    expect(recovered.character.name).toBe("Second Attempt");
+  });
+});
