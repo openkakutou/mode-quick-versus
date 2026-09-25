@@ -1,7 +1,9 @@
 ---
-status: idle
-started: 2026-09-25T08:21
+status: running
+started: 2026-09-25T14:00
 limit: 1
+current: 008
+attempt: 1
 ---
 # Auto run journal
 
@@ -28,3 +30,6 @@ limit: 1
 
 ## 2026-09-25T08:21 — run started (limit: 1, via /vibe:next-task auto 1)
 - 007 — feature — done (bef4667, closed f4e077a; surfaced engine backlog item 021 — Tick never decrements RoundTimer)
+
+## 2026-09-25T14:00 — run started (limit: 1, via /vibe:next-task auto 1)
+- 008 — feature — start
