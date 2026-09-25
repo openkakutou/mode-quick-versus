@@ -1,7 +1,9 @@
 ---
-status: idle
-started: 2026-09-24T20:00
+status: running
+started: 2026-09-25T08:21
 limit: 1
+current: 007
+attempt: 1
 ---
 # Auto run journal
 
@@ -25,3 +27,6 @@ limit: 1
 
 ## 2026-09-24T20:00 — run started (limit: 1)
 - 004 — feature — done (152b145)
+
+## 2026-09-25T08:21 — run started (limit: 1, via /vibe:next-task auto 1)
+- 007 — feature — start
