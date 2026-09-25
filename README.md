@@ -56,7 +56,7 @@ npm run wasm:download:stage -- v0.11.1
 Download a specific version of the `engine` library's WebAssembly build (needed to run a match):
 
 ```sh
-npm run wasm:download:engine -- v2.4.0
+npm run wasm:download:engine -- v2.4.1
 ```
 <!-- vibe:end:install -->
 

@@ -62,7 +62,7 @@ jobs:
       # the full test suite, including every `engine`-dependent test, can
       # now run here before anything is published.
       - name: Download engine WASM release
-        run: npm run wasm:download:engine -- v2.4.0
+        run: npm run wasm:download:engine -- v2.4.1
 
       # Full suite gate, ahead of Lint/Build/Visual below: a broken build
       # must never reach `deploy`, regardless of what `ci.yml` on its own
