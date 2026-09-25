@@ -1,9 +1,7 @@
 ---
-status: running
+status: idle
 started: 2026-09-25T14:00
 limit: 1
-current: 008
-attempt: 1
 ---
 # Auto run journal
 
@@ -32,4 +30,4 @@ attempt: 1
 - 007 — feature — done (bef4667, closed f4e077a; surfaced engine backlog item 021 — Tick never decrements RoundTimer)
 
 ## 2026-09-25T14:00 — run started (limit: 1, via /vibe:next-task auto 1)
-- 008 — feature — start
+- 008 — feature — blocked: native go-gl+SDL2 build unsupported in this sandbox (no SDL2 dev headers/pkg-config, no sudo, no display server, no Windows/Mac cross-compile toolchain); web packaging (deploy pipeline + WASM load-failure error handling) shipped (23c95f5); surfaced backlog item 014 (visual-regression baseline drift)
