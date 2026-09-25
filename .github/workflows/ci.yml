@@ -10,18 +10,29 @@ permissions:
 
 jobs:
   visual:
-    # Pinned to a specific image, not `ubuntu-latest` — a periodic runner
-    # image bump changes fontconfig/freetype/software-GL rendering and would
-    # silently invalidate every committed visual-regression baseline below
-    # with no code change on our side. Mirrors web-ui-kit's own
-    # `.vibe/decisions/015-visual-regression-shared-preset-shape.md`.
+    # Runs inside Playwright's own published image rather than the bare
+    # runner OS with Chromium installed separately — that combination
+    # renders sub-pixel-different font/GL output from whatever machine
+    # captured the committed baselines, a permanent environment mismatch,
+    # not flakiness (found for real: every baseline PNG under
+    # tests/visual/**/*-snapshots/ was off by ~1% of pixels against a bare
+    # ubuntu-24.04 run once deploy-pages.yml's own container-based job had
+    # regenerated them, backlog item 014). Pinned by digest, kept identical
+    # to deploy-pages.yml's own image so the two workflows never diverge
+    # again — bump both together with the `@playwright/test` version in
+    # package.json, and regenerate every baseline through the new image
+    # before merging. Mirrors the sibling `character-viewer-web`/
+    # `character-editor`/`stage-viewer-web` repos' own fix for this same
+    # failure mode, and web-ui-kit's `.vibe/decisions/015`.
     #
     # Scoped to lint + the visual regression suite only (backlog item 011),
     # not the full `npm test` unit/smoke suite: several of those tests need
     # the `engine` WASM module, which has no published release build asset
     # yet (a separate, pre-existing gap — see
     # .vibe/decisions/008-visual-regression-fixture-serving-strategy.md).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e # v1.62.1-noble
     timeout-minutes: 15
     steps:
       # Actions are pinned to a commit SHA, not a floating tag — matches
@@ -52,20 +63,6 @@ jobs:
 
       - name: Prepare visual test fixtures
         run: npm run prepare-visual-fixtures
-
-      # Keyed on the pinned @playwright/test version (package-lock.json) so
-      # a version bump busts the cache instead of silently reusing a
-      # mismatched browser build. Mirrors web-ui-kit's own verify.yml step.
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
 
       # Own step (backlog item 011 AC) — real browser screenshot comparison
       # against the committed baselines in tests/visual/**/*-snapshots/, not
