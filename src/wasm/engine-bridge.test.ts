@@ -5,6 +5,7 @@ import {
   closeMatch,
   newMatch,
   resetEngineWasmBridgeForTests,
+  resetRound,
   tick,
 } from "./engine-bridge.ts";
 import type {
@@ -273,6 +274,71 @@ describe("tick", () => {
     expect(second.ok).toBe(true);
     if (!first.ok || !second.ok) throw new Error("expected ok results");
     expect(second.data.matchId).not.toBe(first.data.matchId);
+  });
+});
+
+describe("resetRound", () => {
+  it("advances to the next round with fresh health/position and untouched progress, once a round has ended", async () => {
+    const created = await newMatch(buildRequest(), testOptions);
+    if (!created.ok) throw new Error("expected an ok result");
+    const matchId = created.data.matchId;
+
+    // Land the same KO this file's own `tick` describe block already
+    // exercises (idle, then the command-triggered transition, then the
+    // HitDef that lands one tick after the transition), so `round.outcome`
+    // is decided before resetting.
+    await tick({ matchId, inputs: [{}, {}] }, testOptions);
+    await tick(
+      { matchId, inputs: [{ buttons: { a: true } }, {}] },
+      testOptions,
+    );
+    const decided = await tick({ matchId, inputs: [{}, {}] }, testOptions);
+    if (!decided.ok) throw new Error("expected an ok result");
+    expect(decided.data.round.outcome).not.toBe(0);
+    const progressAfterRound1 = decided.data.progress;
+
+    const reset = await resetRound(
+      {
+        matchId,
+        roundTimer: 500,
+        starting: [startingFighter(0, 1000), startingFighter(1, 1000)],
+      },
+      testOptions,
+    );
+
+    expect(reset.ok).toBe(true);
+    if (!reset.ok) throw new Error("expected an ok result");
+    expect(reset.data.state.round).toBe(2);
+    expect(reset.data.state.roundTimer).toBe(500);
+    expect(reset.data.state.fighters[0].health).toBe(1000);
+    expect(reset.data.state.fighters[1].health).toBe(1000);
+    expect(reset.data.animations[0]).toEqual({ animNo: 0, animTime: 0 });
+
+    // A fresh tick against the reset session ticks the new round, not the
+    // old (already-decided) one — and progress/wins are untouched by the
+    // reset itself, only readable from the tick response that follows.
+    const nextTick = await tick({ matchId, inputs: [{}, {}] }, testOptions);
+    expect(nextTick.ok).toBe(true);
+    if (!nextTick.ok) throw new Error("expected an ok result");
+    expect(nextTick.data.round.outcome).toBe(0);
+    expect(nextTick.data.progress).toEqual(progressAfterRound1);
+  });
+
+  it("returns a typed error instead of throwing for an unknown match ID", async () => {
+    await newMatch(buildRequest(), testOptions); // ensure the runtime is instantiated
+
+    const result = await resetRound(
+      {
+        matchId: 999999,
+        roundTimer: 500,
+        starting: [startingFighter(0, 1000), startingFighter(1, 1000)],
+      },
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error.length).toBeGreaterThan(0);
   });
 });
 

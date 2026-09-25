@@ -147,6 +147,25 @@ export interface TickResponseData {
   animations: [FighterAnimState, FighterAnimState];
 }
 
+/**
+ * `OpenKakutouEngine.resetRound`'s JSON request shape. `matchId`'s session
+ * computes the next round number itself (`session.state.Round + 1`) — this
+ * request only ever supplies the fresh round timer and both fighters'
+ * starting state, never a round number. See
+ * `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
+ */
+export interface ResetRoundRequest {
+  matchId: number;
+  roundTimer: number;
+  starting: [FighterState, FighterState];
+}
+
+/** `OpenKakutouEngine.resetRound`'s JSON success payload. `progress` (rounds won so far) is untouched by a reset — only `tick`'s own recorded round outcome ever advances it — so it is not part of this response. */
+export interface ResetRoundResponseData {
+  state: MatchState;
+  animations: [FighterAnimState, FighterAnimState];
+}
+
 /** Result of a bridge call: exactly one of `data`/`error` is ever meaningful, mirroring the WASM module's own `{data, error}` envelope one level up in TypeScript, as a discriminated union instead of a thrown exception. */
 export type EngineResult<T> =
   | { ok: true; data: T }

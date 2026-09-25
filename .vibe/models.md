@@ -57,6 +57,7 @@ Defined in: `src/stage/discovery.ts`
 |---|---|---|
 | rounds | number | The chosen round count, a positive odd integer |
 | timeLimit | `TimeLimitOption` | The chosen per-round time limit |
+| player2Control | `"human" \| "cpu"` | Who drives player 2 (backlog item 007) — pre-selected to `"human"`, unlike the two fields above |
 Defined in: `src/setup/setup-screen.ts`
 
 ## TimeLimitOption
@@ -85,6 +86,29 @@ Defined in: `src/wasm/stage-types.ts`
 | roundTimer, bestOf, bounds, gravity, comboWindow | number / `StageBoundaries` / number | Match-level simulation config |
 | matchId, inputs | number / `[TickInput, TickInput]` | `TickRequest` only — the session to advance and this tick's raw input |
 Defined in: `src/wasm/engine-types.ts`; assembled by `src/rendering/match-config.ts`'s `buildNewMatchRequest`. `FighterState.power` (`[0, 3000]`, `engine`'s own hardcoded power/meter cap, not itself part of this JSON contract — see `HudViewModel` below) is read live from every `tick`/`newMatch` response by the HUD.
+
+## RoundResult / Progress / ResetRoundRequest (engine bridge)
+| Field | Type | Notes |
+|---|---|---|
+| outcome | number | `0` = still in progress; `1` = KO; `2` = double KO (draw); `3` = timeout (unequal health); `4` = timeout at equal health (draw) — `engine`'s own `round.Outcome` enum, only meaningful once `!= 0` |
+| winner | `0 \| 1` | Only meaningful for outcome `1`/`3` — the deciding side |
+| progress.bestOf, .wins, .roundsPlayed | number / `[number, number]` / number | Match-level bookkeeping across rounds, carried in every `tick()`/`newMatch()` response; untouched by `resetRound()` |
+| matchOver, matchWinner | boolean / `0 \| 1` | `tick()`-only: whether the whole match (not just this round) is decided, and by whom |
+| resetRound: matchId, roundTimer, starting | number / number / `[FighterState, FighterState]` | `ResetRoundRequest` — the next round number is computed by the session itself, never supplied |
+Defined in: `src/wasm/engine-types.ts` (`RoundResult`, `Progress`, `ResetRoundRequest`, `ResetRoundResponseData`); consumed by `src/result/outcome.ts`'s `deriveRoundOutcome`/`deriveMatchOutcome` and `src/rendering/match-renderer.ts`'s round-end handling. See `.vibe/decisions/010`.
+
+## RoundEndView / MatchEndView (result screen)
+| Field | Type | Notes |
+|---|---|---|
+| round | number | `RoundEndView` only — the round number that just ended |
+| winner | `"p1" \| "p2" \| "draw"` | A clean, defensive reading of `RoundResult`/`matchWinner` — an outcome/winner value `engine` isn't documented to produce also reads as `"draw"`, never left undefined |
+Defined in: `src/result/outcome.ts`; built by `deriveRoundOutcome`/`deriveMatchOutcome`, rendered by `src/result/result-screen.ts`'s `createResultOverlay`.
+
+## CpuObservation
+| Field | Type | Notes |
+|---|---|---|
+| self.position, opponent.position | `Position` (`{x, y}`) | The only state the CPU opponent decides from — a live snapshot read via a closure supplied at construction time, not a change to `TickInputSource.read()`'s own signature |
+Defined in: `src/cpu/cpu-controller.ts`; consumed by `createCpuController().decide()` and supplied by `src/cpu/cpu-input-source.ts`'s `createCpuAwareInputSource`.
 
 ## HudViewModel (in-match HUD)
 | Field | Type | Notes |

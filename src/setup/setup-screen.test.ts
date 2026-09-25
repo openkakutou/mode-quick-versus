@@ -27,6 +27,18 @@ function timeButton(root: HTMLElement, label: string): HTMLElement {
   return button;
 }
 
+function player2ControlButton(
+  root: HTMLElement,
+  value: "human" | "cpu",
+): HTMLElement {
+  const button = root.querySelector<HTMLElement>(
+    `.setup-screen__player2-control-select[data-value="${value}"]`,
+  );
+  if (!button)
+    throw new Error(`player 2 control button for ${value} not found`);
+  return button;
+}
+
 function continueButton(root: HTMLElement): HTMLElement {
   const button = root.querySelector<HTMLElement>("wuik-button:not([class])");
   if (!button) throw new Error("continue button not found");
@@ -42,7 +54,7 @@ beforeEach(() => {
 });
 
 describe("renderSetupScreen", () => {
-  it("renders the default round and time limit options as two independently labelled radiogroups", () => {
+  it("renders the default round and time limit options among three independently labelled radiogroups", () => {
     renderSetupScreen(root, { onContinue });
 
     expect(roundButton(root, 1)).toBeTruthy();
@@ -53,17 +65,18 @@ describe("renderSetupScreen", () => {
     expect(timeButton(root, "Unlimited")).toBeTruthy();
 
     const groups = root.querySelectorAll('[role="radiogroup"]');
-    expect(groups).toHaveLength(2);
+    // Round count, time limit, and Player 2 Control (backlog item 007).
+    expect(groups).toHaveLength(3);
     for (const group of groups) {
       const labelledBy = group.getAttribute("aria-labelledby");
       expect(labelledBy).toBeTruthy();
       expect(root.querySelector(`#${labelledBy}`)).toBeTruthy();
     }
-    // The two groups must not share the same heading.
-    const [firstLabel, secondLabel] = Array.from(groups).map((group) =>
+    // No two groups share the same heading.
+    const labels = Array.from(groups).map((group) =>
       group.getAttribute("aria-labelledby"),
     );
-    expect(firstLabel).not.toBe(secondLabel);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 
   it("keeps Continue disabled until both a round count and a time limit are selected", () => {
@@ -98,6 +111,7 @@ describe("renderSetupScreen", () => {
     expect(onContinue).toHaveBeenCalledExactlyOnceWith({
       rounds: 5,
       timeLimit: { seconds: 60 },
+      player2Control: "human",
     });
   });
 
@@ -111,6 +125,7 @@ describe("renderSetupScreen", () => {
     expect(onContinue).toHaveBeenCalledExactlyOnceWith({
       rounds: 1,
       timeLimit: "unlimited",
+      player2Control: "human",
     });
   });
 
@@ -125,6 +140,7 @@ describe("renderSetupScreen", () => {
     expect(onContinue).toHaveBeenCalledExactlyOnceWith({
       rounds: 3,
       timeLimit: { seconds: 60 },
+      player2Control: "human",
     });
   });
 
@@ -139,6 +155,117 @@ describe("renderSetupScreen", () => {
     expect(roundButton(root, 5).getAttribute("aria-checked")).toBe("true");
     expect(timeButton(root, "99s").getAttribute("aria-checked")).toBe("true");
     expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+  });
+
+  describe("Player 2 control (backlog item 007)", () => {
+    it("pre-selects Human by default, visibly, without blocking Continue", () => {
+      renderSetupScreen(root, { onContinue });
+
+      expect(
+        player2ControlButton(root, "human").getAttribute("aria-checked"),
+      ).toBe("true");
+      expect(
+        player2ControlButton(root, "cpu").getAttribute("aria-checked"),
+      ).toBe("false");
+
+      roundButton(root, 3).click();
+      timeButton(root, "60s").click();
+      expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+    });
+
+    it("includes player2Control: 'human' in onContinue when left at its default", () => {
+      renderSetupScreen(root, { onContinue });
+
+      roundButton(root, 3).click();
+      timeButton(root, "60s").click();
+      continueButton(root).click();
+
+      expect(onContinue).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ player2Control: "human" }),
+      );
+    });
+
+    it("switches to CPU when selected, and includes it in onContinue", () => {
+      renderSetupScreen(root, { onContinue });
+
+      player2ControlButton(root, "cpu").click();
+      expect(
+        player2ControlButton(root, "cpu").getAttribute("aria-checked"),
+      ).toBe("true");
+      expect(
+        player2ControlButton(root, "human").getAttribute("aria-checked"),
+      ).toBe("false");
+
+      roundButton(root, 1).click();
+      timeButton(root, "99s").click();
+      continueButton(root).click();
+
+      expect(onContinue).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ player2Control: "cpu" }),
+      );
+    });
+
+    it("swaps player 2's Controls listing for a 'controlled automatically' note once CPU is selected", () => {
+      renderSetupScreen(root, { onContinue });
+      const sections = root.querySelectorAll<HTMLElement>(
+        ".setup-screen__controls-player",
+      );
+      const p2ListBefore = sections[1].querySelector<HTMLElement>("dl");
+      const p2NoteBefore = sections[1].querySelector<HTMLElement>(
+        ".setup-screen__controls-cpu-note",
+      );
+      expect(p2ListBefore?.hidden).toBe(false);
+      expect(p2NoteBefore?.hidden).toBe(true);
+
+      player2ControlButton(root, "cpu").click();
+
+      const p2List = sections[1].querySelector<HTMLElement>("dl");
+      const p2Note = sections[1].querySelector<HTMLElement>(
+        ".setup-screen__controls-cpu-note",
+      );
+      expect(p2List?.hidden).toBe(true);
+      expect(p2Note?.hidden).toBe(false);
+      expect(p2Note?.textContent?.toLowerCase()).toContain(
+        "controlled automatically",
+      );
+      expect(sections[1].querySelector("h3")?.textContent).toContain("CPU");
+      // Player 1's own listing is unaffected.
+      expect(sections[0].querySelector("dl")?.hidden).toBe(false);
+      expect(sections[0].textContent).toContain("W");
+    });
+
+    it("restores player 2's keyboard bindings if switched back to Human", () => {
+      renderSetupScreen(root, { onContinue });
+      const sections = root.querySelectorAll<HTMLElement>(
+        ".setup-screen__controls-player",
+      );
+
+      player2ControlButton(root, "cpu").click();
+      player2ControlButton(root, "human").click();
+
+      const p2List = sections[1].querySelector<HTMLElement>("dl");
+      const p2Note = sections[1].querySelector<HTMLElement>(
+        ".setup-screen__controls-cpu-note",
+      );
+      expect(p2List?.hidden).toBe(false);
+      expect(p2Note?.hidden).toBe(true);
+      expect(sections[1].querySelector("h3")?.textContent).toContain(
+        "keyboard",
+      );
+    });
+
+    it("treats re-selecting the already-selected control mode as a no-op", () => {
+      renderSetupScreen(root, { onContinue });
+
+      player2ControlButton(root, "human").click();
+      roundButton(root, 3).click();
+      timeButton(root, "60s").click();
+      continueButton(root).click();
+
+      expect(onContinue).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ player2Control: "human" }),
+      );
+    });
   });
 
   it("renders a blocking, named error state when a configured round count is not a positive odd integer", () => {
@@ -241,6 +368,7 @@ describe("renderSetupScreen", () => {
       expect(headings).toContain("Nombre de rounds");
       expect(headings).toContain("Limite de temps");
       expect(headings).toContain("Commandes");
+      expect(headings).toContain("Contrôle du joueur 2");
       // Physical key names are never translated.
       const sections = root.querySelectorAll(".setup-screen__controls-player");
       expect(sections[0].textContent).toContain("W");
@@ -249,6 +377,23 @@ describe("renderSetupScreen", () => {
       expect(roundButton(root, 3).getAttribute("aria-checked")).toBe("true");
       expect(timeButton(root, "99s").getAttribute("aria-checked")).toBe("true");
       expect(continueButton(root).hasAttribute("disabled")).toBe(false);
+    });
+
+    it("re-translates the 'controlled automatically' note in place once CPU is selected", async () => {
+      const instance = await initAppI18n();
+      await instance.changeLanguage("en");
+      renderSetupScreen(root, { onContinue });
+      player2ControlButton(root, "cpu").click();
+
+      await instance.changeLanguage("fr");
+      await vi.waitFor(() => {
+        const sections = root.querySelectorAll(
+          ".setup-screen__controls-player",
+        );
+        expect(sections[1].textContent?.toLowerCase()).toContain(
+          "contrôlé automatiquement",
+        );
+      });
     });
 
     it("re-translates the blocking error state in place", async () => {

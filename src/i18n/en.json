@@ -40,8 +40,13 @@
     "timeLimitUnlimited": "Unlimited",
     "invalidRoundOption": "Invalid round count option: {{value}}. Round counts must be positive odd integers.",
     "invalidTimeLimitOption": "Invalid time limit option: {{value}}. Time limits must be a positive number of seconds, or \"unlimited\".",
+    "player2ControlHeading": "Player 2 Control",
+    "player2ControlHuman": "Human",
+    "player2ControlCpu": "CPU",
+    "player2CpuNote": "Controlled automatically (CPU).",
     "controlsHeading": "Controls",
     "controlsPlayerHeading": "Player {{number}} (keyboard)",
+    "controlsPlayerHeadingCpu": "Player {{number}} (CPU)",
     "directionUp": "Up",
     "directionDown": "Down",
     "directionLeft": "Left",
@@ -56,5 +61,14 @@
     "roundInfo": "Round {{round}} · Best of {{bestOf}}",
     "roundAnnouncement": "Round {{round}} started. {{p1Wins}} - {{p2Wins}}.",
     "error": "The match display could not be updated: {{error}}"
+  },
+  "result": {
+    "roundWinner": "Round {{round}}: Player {{number}} wins!",
+    "roundDraw": "Round {{round}}: Draw!",
+    "matchWinner": "Player {{number}} wins the match!",
+    "matchDraw": "The match ends in a draw!",
+    "continuingIn": "Next round in {{seconds}}…",
+    "rematch": "Rematch",
+    "backToSelect": "Back to select"
   }
 }

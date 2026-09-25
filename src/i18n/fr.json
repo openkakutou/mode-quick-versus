@@ -40,8 +40,13 @@
     "timeLimitUnlimited": "Illimité",
     "invalidRoundOption": "Option de nombre de rounds invalide : {{value}}. Le nombre de rounds doit être un entier positif impair.",
     "invalidTimeLimitOption": "Option de limite de temps invalide : {{value}}. La limite de temps doit être un nombre positif de secondes, ou « illimité ».",
+    "player2ControlHeading": "Contrôle du joueur 2",
+    "player2ControlHuman": "Humain",
+    "player2ControlCpu": "IA",
+    "player2CpuNote": "Contrôlé automatiquement (IA).",
     "controlsHeading": "Commandes",
     "controlsPlayerHeading": "Joueur {{number}} (clavier)",
+    "controlsPlayerHeadingCpu": "Joueur {{number}} (IA)",
     "directionUp": "Haut",
     "directionDown": "Bas",
     "directionLeft": "Gauche",
@@ -56,5 +61,14 @@
     "roundInfo": "Round {{round}} · Meilleur des {{bestOf}}",
     "roundAnnouncement": "Round {{round}} commencé. {{p1Wins}} - {{p2Wins}}.",
     "error": "L'affichage du match n'a pas pu être mis à jour : {{error}}"
+  },
+  "result": {
+    "roundWinner": "Round {{round}} : le joueur {{number}} gagne !",
+    "roundDraw": "Round {{round}} : match nul !",
+    "matchWinner": "Le joueur {{number}} remporte le match !",
+    "matchDraw": "Le match se termine par un match nul !",
+    "continuingIn": "Prochain round dans {{seconds}}…",
+    "rematch": "Revanche",
+    "backToSelect": "Retour à la sélection"
   }
 }

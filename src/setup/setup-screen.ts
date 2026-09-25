@@ -28,10 +28,22 @@ import {
 /** A configured time limit: a fixed duration in seconds, or no timer at all. */
 export type TimeLimitOption = { readonly seconds: number } | "unlimited";
 
-/** The values carried forward once both fields are chosen and Continue is activated. */
+/**
+ * Who drives player 2 during the match: a second local human, or the
+ * minimal CPU opponent (backlog item 007). Pre-selected to `"human"` by
+ * default (see the Player 2 Control section below) rather than left
+ * unselected like the round-count/time-limit fields, so the existing
+ * two-human flow needs no extra click and Continue's gating never depends
+ * on this field being touched. See
+ * `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
+ */
+export type PlayerTwoControl = "human" | "cpu";
+
+/** The values carried forward once both required fields are chosen and Continue is activated. */
 export interface MatchSetupConfig {
   rounds: number;
   timeLimit: TimeLimitOption;
+  player2Control: PlayerTwoControl;
 }
 
 export interface SetupScreenOptions {
@@ -140,8 +152,12 @@ export function renderSetupScreen(
 
   let selectedRounds: number | null = null;
   let selectedTimeLimit: TimeLimitOption | null = null;
+  // Pre-selected, unlike the two fields above: see `PlayerTwoControl`'s own
+  // doc comment for why Continue's gating never depends on this field.
+  let selectedPlayer2Control: PlayerTwoControl = "human";
   const roundButtonsByValue = new Map<number, HTMLElement>();
   const timeButtonsByKey = new Map<string, HTMLElement>();
+  const player2ControlButtonsByValue = new Map<PlayerTwoControl, HTMLElement>();
 
   const continueButton = document.createElement("wuik-button");
   continueButton.textContent = t("setup.continue", "Continue");
@@ -151,6 +167,7 @@ export function renderSetupScreen(
     options.onContinue({
       rounds: selectedRounds,
       timeLimit: selectedTimeLimit,
+      player2Control: selectedPlayer2Control,
     });
   });
 
@@ -194,6 +211,15 @@ export function renderSetupScreen(
       setSelected(button, optionKey === key);
     }
     syncContinueState();
+  }
+
+  function selectPlayer2Control(value: PlayerTwoControl): void {
+    if (selectedPlayer2Control === value) return;
+    selectedPlayer2Control = value;
+    for (const [optionValue, button] of player2ControlButtonsByValue) {
+      setSelected(button, optionValue === value);
+    }
+    controls.setPlayer2Cpu(value === "cpu");
   }
 
   const roundsHeadingId = "setup-screen-rounds-heading";
@@ -243,6 +269,46 @@ export function renderSetupScreen(
   }
   refreshTimeButtonLabels();
 
+  const player2ControlHeadingId = "setup-screen-player2-control-heading";
+  const player2ControlHeading = document.createElement("h2");
+  player2ControlHeading.id = player2ControlHeadingId;
+
+  const player2ControlGroup = document.createElement("div");
+  player2ControlGroup.className = "setup-screen__grid";
+  player2ControlGroup.setAttribute("role", "radiogroup");
+  player2ControlGroup.setAttribute("aria-labelledby", player2ControlHeadingId);
+
+  const player2ControlValues: readonly PlayerTwoControl[] = ["human", "cpu"];
+  for (const value of player2ControlValues) {
+    const button = document.createElement("wuik-button");
+    button.setAttribute("variant", "secondary");
+    button.setAttribute("role", "radio");
+    button.className = "setup-screen__player2-control-select";
+    button.dataset.value = value;
+    button.addEventListener("click", () => selectPlayer2Control(value));
+    player2ControlButtonsByValue.set(value, button);
+    player2ControlGroup.appendChild(button);
+  }
+
+  function refreshPlayer2ControlLabels(): void {
+    player2ControlHeading.textContent = t(
+      "setup.player2ControlHeading",
+      "Player 2 Control",
+    );
+    for (const [value, button] of player2ControlButtonsByValue) {
+      button.textContent =
+        value === "human"
+          ? t("setup.player2ControlHuman", "Human")
+          : t("setup.player2ControlCpu", "CPU");
+    }
+  }
+  refreshPlayer2ControlLabels();
+  // Pre-selected to Human, unlike the round-count/time-limit radiogroups
+  // above -- see `PlayerTwoControl`'s own doc comment.
+  for (const [value, button] of player2ControlButtonsByValue) {
+    setSelected(button, value === selectedPlayer2Control);
+  }
+
   const panel = document.createElement("wuik-panel");
   panel.className = "setup-screen";
 
@@ -260,6 +326,11 @@ export function renderSetupScreen(
   timeSection.appendChild(timeGroup);
   panel.appendChild(timeSection);
 
+  const player2ControlSection = document.createElement("section");
+  player2ControlSection.appendChild(player2ControlHeading);
+  player2ControlSection.appendChild(player2ControlGroup);
+  panel.appendChild(player2ControlSection);
+
   const controls = buildControlsSection();
   panel.appendChild(controls.element);
   panel.appendChild(continueButton);
@@ -273,6 +344,7 @@ export function renderSetupScreen(
     continueButton.textContent = t("setup.continue", "Continue");
     refreshRoundButtonLabels();
     refreshTimeButtonLabels();
+    refreshPlayer2ControlLabels();
     controls.retranslate();
   }
 
@@ -292,6 +364,8 @@ export function renderSetupScreen(
 function buildControlsSection(): {
   element: HTMLElement;
   retranslate: () => void;
+  /** Swaps player 2's own listing between its keyboard binding table and a plain "controlled automatically" note (backlog item 007's CPU opponent) — player 1's listing is never affected. */
+  setPlayer2Cpu: (isCpu: boolean) => void;
 } {
   const section = document.createElement("section");
   section.className = "setup-screen__controls";
@@ -310,8 +384,11 @@ function buildControlsSection(): {
     defaultLabel: string;
     element: HTMLElement;
   }[] = [];
+  let player2List!: HTMLElement;
+  let player2CpuNote!: HTMLElement;
+  let player2Cpu = false;
 
-  for (const binding of DEFAULT_KEYBOARD_BINDINGS) {
+  DEFAULT_KEYBOARD_BINDINGS.forEach((binding, index) => {
     const playerSection = document.createElement("div");
     playerSection.className = "setup-screen__controls-player";
 
@@ -347,8 +424,18 @@ function buildControlsSection(): {
       list.appendChild(dd);
     }
     playerSection.appendChild(list);
+
+    if (index === 1) {
+      player2List = list;
+      const note = document.createElement("p");
+      note.className = "setup-screen__controls-cpu-note";
+      note.hidden = true;
+      playerSection.appendChild(note);
+      player2CpuNote = note;
+    }
+
     grid.appendChild(playerSection);
-  }
+  });
 
   section.appendChild(grid);
 
@@ -356,14 +443,28 @@ function buildControlsSection(): {
   gamepadNote.className = "setup-screen__controls-note";
   section.appendChild(gamepadNote);
 
+  function playerHeadingKeyFor(index: number): {
+    key: string;
+    defaultLabel: string;
+  } {
+    return index === 1 && player2Cpu
+      ? {
+          key: "setup.controlsPlayerHeadingCpu",
+          defaultLabel: "Player {{number}} (CPU)",
+        }
+      : {
+          key: "setup.controlsPlayerHeading",
+          defaultLabel: "Player {{number}} (keyboard)",
+        };
+  }
+
   function retranslate(): void {
     heading.textContent = t("setup.controlsHeading", "Controls");
     for (const [index, playerHeading] of playerHeadings.entries()) {
-      playerHeading.textContent = t(
-        "setup.controlsPlayerHeading",
-        "Player {{number}} (keyboard)",
-        { number: String(index + 1) },
-      );
+      const { key, defaultLabel } = playerHeadingKeyFor(index);
+      playerHeading.textContent = t(key, defaultLabel, {
+        number: String(index + 1),
+      });
     }
     for (const { labelKey, defaultLabel, element } of directionLabelCells) {
       element.textContent = t(labelKey, defaultLabel);
@@ -372,10 +473,22 @@ function buildControlsSection(): {
       "setup.gamepadNote",
       "A connected gamepad is used automatically for whichever player it's assigned to (first connected → Player 1, next → Player 2). If it disconnects mid-match, that player falls back to their keyboard controls above.",
     );
+    player2CpuNote.textContent = t(
+      "setup.player2CpuNote",
+      "Controlled automatically (CPU).",
+    );
   }
   retranslate();
 
-  return { element: section, retranslate };
+  function setPlayer2Cpu(isCpu: boolean): void {
+    player2Cpu = isCpu;
+    player2List.hidden = isCpu;
+    player2CpuNote.hidden = !isCpu;
+    const { key, defaultLabel } = playerHeadingKeyFor(1);
+    playerHeadings[1].textContent = t(key, defaultLabel, { number: "2" });
+  }
+
+  return { element: section, retranslate, setPlayer2Cpu };
 }
 
 function buildErrorState(message: () => string): {

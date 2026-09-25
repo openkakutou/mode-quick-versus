@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TickInputPair } from "../input/tick-input-source.ts";
+import type { ResultOverlayOptions } from "../result/result-screen.ts";
 import type {
   NewMatchResponseData,
-  TickResponseData,
+  ResetRoundResponseData,
 } from "../wasm/engine-types.ts";
+import type { TickResponseData } from "../wasm/engine-types.ts";
 import type { EngineResult } from "../wasm/engine-types.ts";
 import type { StageSummary } from "../wasm/stage-types.ts";
 import type { CharacterSummary } from "../wasm/types.ts";
@@ -114,7 +116,9 @@ function newMatchResponse(matchId = 1): EngineResult<NewMatchResponseData> {
   };
 }
 
-function tickResponse(): EngineResult<TickResponseData> {
+function tickResponse(
+  overrides: Partial<TickResponseData> = {},
+): EngineResult<TickResponseData> {
   const created = newMatchResponse();
   if (!created.ok) throw new Error("expected an ok result");
   const base = created.data;
@@ -130,27 +134,85 @@ function tickResponse(): EngineResult<TickResponseData> {
         { animNo: 0, animTime: 1 },
         { animNo: 0, animTime: 1 },
       ],
+      ...overrides,
     },
   };
 }
 
-function baseInput(): MatchRendererInput {
+function resetRoundResponse(): EngineResult<ResetRoundResponseData> {
+  const created = newMatchResponse();
+  if (!created.ok) throw new Error("expected an ok result");
+  return {
+    ok: true,
+    data: {
+      state: { ...created.data.state, round: 2 },
+      animations: [
+        { animNo: 0, animTime: 0 },
+        { animNo: 0, animTime: 0 },
+      ],
+    },
+  };
+}
+
+function baseInput(
+  overrides: Partial<MatchRendererInput> = {},
+): MatchRendererInput {
   return {
     player1: { character: character(), sffBytes: new Uint8Array([1]) },
     player2: { character: character(), sffBytes: new Uint8Array([2]) },
     stage: { stage: stage(), sffBytes: new Uint8Array([3]) },
     config: { rounds: 3, timeLimit: { seconds: 99 } },
+    onBackToSelect: vi.fn(),
+    ...overrides,
+  };
+}
+
+/**
+ * A fake result overlay double: instead of a real DOM/timer-driven overlay
+ * (`result/result-screen.ts`), this exposes the exact `ResultOverlayOptions`
+ * `renderMatch` constructed it with, so a test can drive
+ * `onRoundResultDone`/`onRematch`/`onBackToSelect` directly and assert on
+ * `showRoundResult`/`showMatchResult`'s own call arguments -- without
+ * depending on the real overlay's countdown timer at all (already covered
+ * by `result/result-screen.test.ts`).
+ */
+function fakeResultOverlay() {
+  const overlay = {
+    element: document.createElement("div"),
+    showRoundResult: vi.fn(),
+    showMatchResult: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+  };
+  let capturedOptions: ResultOverlayOptions | null = null;
+  const createResultOverlay = vi.fn((options: ResultOverlayOptions) => {
+    capturedOptions = options;
+    return overlay;
+  });
+  return {
+    overlay,
+    createResultOverlay,
+    options: () => {
+      if (!capturedOptions) throw new Error("result overlay not created yet");
+      return capturedOptions;
+    },
   };
 }
 
 function baseOptions(
   overrides: Partial<MatchRendererOptions> = {},
-): MatchRendererOptions & { rafCallbacks: ((ts: number) => void)[] } {
+): MatchRendererOptions & {
+  rafCallbacks: ((ts: number) => void)[];
+  resultOverlay: ReturnType<typeof fakeResultOverlay>;
+} {
   const rafCallbacks: ((ts: number) => void)[] = [];
+  const resultOverlay = fakeResultOverlay();
   return {
     newMatch: vi.fn(async () => newMatchResponse()),
     tick: vi.fn(async () => tickResponse()),
+    resetRound: vi.fn(async () => resetRoundResponse()),
     closeMatch: vi.fn(async () => ({ ok: true as const, data: {} })),
+    createResultOverlay: resultOverlay.createResultOverlay,
     resolveCharacterSprites: vi.fn(async (_sff, requests) =>
       requests.map(() => ({
         ok: true as const,
@@ -172,6 +234,7 @@ function baseOptions(
     cancelAnimationFrame: vi.fn(),
     now: vi.fn(() => 0),
     rafCallbacks,
+    resultOverlay,
     ...overrides,
   };
 }
@@ -545,6 +608,351 @@ describe("renderMatch", () => {
       expect(options.cancelAnimationFrame).not.toHaveBeenCalled();
       expect(root.querySelector("canvas")).not.toBeNull();
       expect(root.querySelector(".match-renderer__status")).toBeNull();
+    });
+  });
+
+  describe("round/match result flow (backlog item 007)", () => {
+    it("stops calling tick() the instant a round is decided, even mid-burst, and shows the round result", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const tickMock = vi
+        .fn()
+        .mockResolvedValueOnce(tickResponse())
+        .mockResolvedValueOnce(
+          tickResponse({ round: { outcome: 1, winner: 0 } }),
+        )
+        .mockResolvedValueOnce(tickResponse());
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: tickMock,
+      });
+
+      await renderMatch(root, baseInput(), options);
+      // 3 full tick intervals elapsed at once -> a would-be 3-tick burst.
+      currentTime = (1000 / 60) * 3 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showRoundResult,
+        ).toHaveBeenCalled();
+      });
+      // Only 2 of the 3 ticks ran -- the 3rd would have double-counted an
+      // already-decided round.
+      expect(tickMock).toHaveBeenCalledTimes(2);
+      expect(
+        options.resultOverlay.overlay.showRoundResult,
+      ).toHaveBeenCalledWith({ round: 1, winner: "p1" });
+      // The loop is frozen, not rescheduled -- requestAnimationFrame was
+      // only ever called once, at match start.
+      expect(options.requestAnimationFrame).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows the match result instead of the round result when the match is also decided this tick", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({
+            round: { outcome: 1, winner: 1 },
+            matchOver: true,
+            matchWinner: 1,
+          }),
+        ),
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showMatchResult,
+        ).toHaveBeenCalled();
+      });
+      expect(
+        options.resultOverlay.overlay.showMatchResult,
+      ).toHaveBeenCalledWith({ winner: "p2" });
+      expect(
+        options.resultOverlay.overlay.showRoundResult,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("resolves a double KO to a draw round result, not to either side", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({ round: { outcome: 2, winner: 0 } }),
+        ),
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showRoundResult,
+        ).toHaveBeenCalledWith({ round: 1, winner: "draw" });
+      });
+    });
+
+    it("resets to a fresh next round and resumes the tick loop once the round result's auto-advance fires", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({ round: { outcome: 1, winner: 0 } }),
+        ),
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showRoundResult,
+        ).toHaveBeenCalled();
+      });
+
+      options.resultOverlay.options().onRoundResultDone();
+
+      await vi.waitFor(() => {
+        expect(options.resetRound).toHaveBeenCalled();
+      });
+      const request = (options.resetRound as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      expect(request.matchId).toBe(1);
+      expect(request.roundTimer).toBe(99 * 60); // baseInput()'s 99s config.
+      expect(request.starting).toHaveLength(2);
+      expect(request.starting[0].health).toBe(1000);
+      expect(request.starting[1].health).toBe(1000);
+      // The loop actually resumed: a second requestAnimationFrame was
+      // scheduled once the reset's own async sprite/HUD work settles, and a
+      // further elapsed frame ticks again.
+      await vi.waitFor(() => {
+        expect(options.requestAnimationFrame).toHaveBeenCalledTimes(2);
+      });
+      expect(options.resultOverlay.overlay.hide).toHaveBeenCalled();
+
+      currentTime += 1000 / 60 + 1;
+      options.rafCallbacks[1](currentTime);
+      await vi.waitFor(() => {
+        expect(options.tick).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("shows a clear error and stops the match instead of getting stuck when resetRound fails", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({ round: { outcome: 1, winner: 0 } }),
+        ),
+        resetRound: vi.fn(async () => ({ ok: false as const, error: "boom" })),
+      });
+
+      await renderMatch(root, baseInput(), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showRoundResult,
+        ).toHaveBeenCalled();
+      });
+
+      options.resultOverlay.options().onRoundResultDone();
+
+      await vi.waitFor(() => {
+        expect(options.cancelAnimationFrame).toHaveBeenCalled();
+      });
+      expect(root.textContent).toContain("boom");
+      expect(options.resultOverlay.overlay.hide).toHaveBeenCalled();
+    });
+
+    it("rematch restarts a fresh match with the same characters/stage/config, without any selection-screen involvement", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({
+            round: { outcome: 1, winner: 0 },
+            matchOver: true,
+            matchWinner: 0,
+          }),
+        ),
+      });
+      const input = baseInput();
+
+      await renderMatch(root, input, options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showMatchResult,
+        ).toHaveBeenCalled();
+      });
+
+      options.resultOverlay.options().onRematch();
+
+      await vi.waitFor(() => {
+        expect(options.newMatch).toHaveBeenCalledTimes(2);
+      });
+      const [firstCall, secondCall] = (
+        options.newMatch as ReturnType<typeof vi.fn>
+      ).mock.calls;
+      expect(secondCall[0]).toEqual(firstCall[0]);
+      expect(input.onBackToSelect).not.toHaveBeenCalled();
+    });
+
+    it("back to select stops the match (releasing the engine session and input listeners) before invoking the caller's callback", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        tick: vi.fn(async () =>
+          tickResponse({
+            round: { outcome: 1, winner: 0 },
+            matchOver: true,
+            matchWinner: 0,
+          }),
+        ),
+      });
+      const input = baseInput();
+
+      await renderMatch(root, input, options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+      await vi.waitFor(() => {
+        expect(
+          options.resultOverlay.overlay.showMatchResult,
+        ).toHaveBeenCalled();
+      });
+
+      options.resultOverlay.options().onBackToSelect();
+
+      expect(options.cancelAnimationFrame).toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(options.closeMatch).toHaveBeenCalledWith(1);
+      });
+      expect(input.onBackToSelect).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("CPU opponent (backlog item 007)", () => {
+    it("drives player 2 via the CPU controller from live fighter positions when player2Control is 'cpu', leaving player 1's own input untouched", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const baseSourceInputs: TickInputPair = [
+        {
+          up: true,
+          down: false,
+          left: false,
+          right: false,
+          buttons: {
+            a: false,
+            b: false,
+            c: false,
+            x: false,
+            y: false,
+            z: false,
+          },
+        },
+        {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          buttons: {
+            a: false,
+            b: false,
+            c: false,
+            x: false,
+            y: false,
+            z: false,
+          },
+        },
+      ];
+      const inputSource = fakeInputSource(baseSourceInputs);
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        createInputSource: vi.fn(() => inputSource),
+      });
+
+      // baseInput()'s fixture starts player 1 at x=-70, player 2 at x=70
+      // (see newMatchResponse()) -- player 2, to the right, must walk left
+      // toward player 1.
+      await renderMatch(root, baseInput({ player2Control: "cpu" }), options);
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(options.tick).toHaveBeenCalledTimes(1);
+      });
+      const request = (options.tick as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      expect(request.inputs[0].up).toBe(true); // player 1 passed through untouched.
+      expect(request.inputs[1].left).toBe(true); // player 2 decided by the CPU.
+      expect(request.inputs[1].right).toBe(false);
+    });
+
+    it("leaves player 2 on the real input source (keyboard/gamepad) when player2Control is 'human' or omitted", async () => {
+      const root = document.createElement("div");
+      let currentTime = 0;
+      const inputs: TickInputPair = [
+        {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          buttons: {
+            a: false,
+            b: false,
+            c: false,
+            x: false,
+            y: false,
+            z: false,
+          },
+        },
+        {
+          up: false,
+          down: false,
+          left: false,
+          right: true,
+          buttons: {
+            a: false,
+            b: false,
+            c: false,
+            x: false,
+            y: false,
+            z: false,
+          },
+        },
+      ];
+      const inputSource = fakeInputSource(inputs);
+      const options = baseOptions({
+        now: vi.fn(() => currentTime),
+        createInputSource: vi.fn(() => inputSource),
+      });
+
+      await renderMatch(root, baseInput(), options); // no player2Control set.
+      currentTime = 1000 / 60 + 1;
+      options.rafCallbacks[0](currentTime);
+
+      await vi.waitFor(() => {
+        expect(options.tick).toHaveBeenCalledTimes(1);
+      });
+      const request = (options.tick as ReturnType<typeof vi.fn>).mock
+        .calls[0][0];
+      // Exactly what the real (fake) input source produced -- never
+      // overwritten by the CPU path.
+      expect(request.inputs[1].right).toBe(true);
     });
   });
 });

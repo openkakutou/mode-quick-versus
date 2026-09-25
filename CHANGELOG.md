@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Round and match results: when a round ends, a result panel shows the round winner (or a draw) and automatically continues to the next round after a short countdown. When the match itself ends, a result panel shows the overall winner (or a draw) with two choices: "Rematch" (instantly replays the match with the same characters, stage, and settings) or "Back to select" (returns to character selection). An unexpected or ambiguous match outcome always resolves to a clear result instead of leaving the screen stuck.
+- Single-player mode: the match setup screen now has a "Player 2 Control" choice (Human or CPU), defaulting to Human. Choosing CPU hands player 2 to a minimal computer-controlled opponent — a first pass, not a full AI — that moves toward its opponent and occasionally attacks, driven through the exact same input path as a real player. The Controls section reflects the choice, showing "controlled automatically" for a CPU-driven player 2 instead of keyboard bindings.
+
 ## [0.9.0] - 2026-09-24
 
 ### Added

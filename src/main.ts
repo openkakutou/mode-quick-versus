@@ -140,10 +140,6 @@ export async function renderApp(
   shell.appendChild(toolbar);
 
   const main = document.createElement("main");
-  const status = document.createElement("p");
-  status.className = "app-status";
-  status.textContent = t("status.discoveringRoster", "Discovering roster…");
-  main.appendChild(status);
   shell.appendChild(main);
 
   root.appendChild(shell);
@@ -154,6 +150,29 @@ export async function renderApp(
       localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
     }),
   );
+
+  await showRosterSelection(main, options);
+}
+
+/**
+ * Discovers the character roster (backlog item 001) and renders the
+ * selection screen in `main`, replacing its previous content. Used both by
+ * `renderApp`'s initial load and by the match result screen's "back to
+ * select" action (backlog item 007) -- re-fetching the manifest and
+ * re-discovering the roster fresh each time, rather than threading the
+ * already-discovered list down through every intermediate screen function
+ * just to save one re-fetch on this rare, deliberate user action. See
+ * `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
+ */
+async function showRosterSelection(
+  main: HTMLElement,
+  options: RenderAppOptions,
+): Promise<void> {
+  main.replaceChildren();
+  const status = document.createElement("p");
+  status.className = "app-status";
+  status.textContent = t("status.discoveringRoster", "Discovering roster…");
+  main.appendChild(status);
 
   const manifestResult = await fetchRosterManifest(options.manifestOptions);
   if (!manifestResult.ok) {
@@ -461,6 +480,10 @@ async function startMatch(
     },
     stage: { stage: stageLoaded.stage, sffBytes: stageSffBytes },
     config,
+    player2Control: config.player2Control,
+    onBackToSelect: () => {
+      void showRosterSelection(main, options);
+    },
   });
 }
 

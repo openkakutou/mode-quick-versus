@@ -12,11 +12,11 @@ This project is in early-stage development. Available now:
 - Player input: each player has their own default keyboard controls (shown on the match setup screen), and a connected gamepad is used automatically for whichever player it's assigned to — no setup required. If a gamepad disconnects mid-match, that player falls back to their keyboard controls instead of freezing.
 - Localization: the character selection, stage selection, and match setup screens are available in English and French, with a language switcher that changes the displayed language instantly. The chosen language is remembered the next time the app loads.
 - In-match HUD: both players' lifebar and power/meter bar update live throughout the match, alongside the current round number, each player's round wins, and the configured best-of. If the match's underlying data ever becomes unreadable, the HUD shows a clear message instead of freezing or crashing the match.
+- Round and match results: when a round ends, a clear result appears showing the round winner (or a draw) and automatically continues to the next round after a short countdown — no click needed. When the match itself ends, a result screen shows the overall winner (or a draw) with two choices: instantly rematch with the same characters, stage, and settings, or return to character selection.
+- Single-player mode: a "Player 2 Control" choice on the match setup screen lets one player face a computer-controlled opponent instead of a second human — a minimal first pass, not a full AI, that moves toward its opponent and attacks on its own.
 
 Planned:
 
-- Round/match result screen with rematch and back-to-select
-- A minimal first-pass CPU opponent for single-player
 - Release packaging as a static, deployable build
 <!-- vibe:end:features -->
 

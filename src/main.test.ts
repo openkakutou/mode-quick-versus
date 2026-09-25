@@ -212,6 +212,7 @@ describe("renderApp", () => {
   async function renderAndStartMatch(
     root: HTMLElement,
     overrides: Parameters<typeof renderApp>[2] = {},
+    options: { selectPlayer2Cpu?: boolean } = {},
   ): Promise<{
     main: HTMLElement;
     renderMatch: ReturnType<typeof vi.fn>;
@@ -236,6 +237,13 @@ describe("renderApp", () => {
     });
     main.querySelector<HTMLElement>('[data-value="3"]')?.click();
     main.querySelector<HTMLElement>('[data-label="Unlimited"]')?.click();
+    if (options.selectPlayer2Cpu) {
+      main
+        .querySelector<HTMLElement>(
+          '.setup-screen__player2-control-select[data-value="cpu"]',
+        )
+        ?.click();
+    }
     const setupContinueEl = Array.from(
       main.querySelectorAll("wuik-button"),
     ).find((el) => el.textContent === "Continue") as HTMLElement;
@@ -261,6 +269,7 @@ describe("renderApp", () => {
     expect(input.config).toEqual({
       rounds: 3,
       timeLimit: "unlimited",
+      player2Control: "human",
     });
     // No loadCmd override supplied: the real bridge's own loadCmd rejects
     // under jsdom (no WASM stub configured for this test), so both players
@@ -278,6 +287,36 @@ describe("renderApp", () => {
       commands: [],
       states: [],
     });
+  });
+
+  it("threads the CPU opponent choice from the setup screen into match rendering (backlog item 007)", async () => {
+    const root = document.createElement("div");
+
+    const { renderMatch } = await renderAndStartMatch(
+      root,
+      {},
+      { selectPlayer2Cpu: true },
+    );
+
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.config.player2Control).toBe("cpu");
+  });
+
+  it("passes a working onBackToSelect that re-shows the character selection screen (backlog item 007)", async () => {
+    const root = document.createElement("div");
+
+    const { main, renderMatch } = await renderAndStartMatch(root);
+    const [, input] = renderMatch.mock.calls[0];
+    expect(typeof input.onBackToSelect).toBe("function");
+
+    input.onBackToSelect();
+
+    await vi.waitFor(() => {
+      if (!main.querySelector(".roster-screen__pick--p1")) {
+        throw new Error("roster screen not re-mounted yet");
+      }
+    });
+    expect(main.textContent).toContain("Choose your character");
   });
 
   it("threads each player's own parsed command file into match rendering when loadCmd succeeds", async () => {

@@ -1,17 +1,21 @@
 // Bridge to the `engine` WASM module: loads `engine-wasm_exec.js`,
 // instantiates `engine.wasm`, and exposes typed wrappers around the global
-// `OpenKakutouEngine.newMatch`/`tick`/`closeMatch` calls. A third,
-// independent WASM module from `character`'s/`stage`'s own bridges — same
-// loading strategy (injectable fetch, `Function`-executed `wasm_exec.js`,
-// unawaited `go.run`) as both, but a different call shape: every exposed
-// function takes and returns exactly one JSON string rather than typed
-// arguments, so this bridge also owns `JSON.stringify`/`JSON.parse` at the
-// boundary. See `.vibe/decisions/004-match-rendering-architecture.md` for
-// why only `newMatch`/`tick`/`closeMatch` are exposed (not `resetRound`).
+// `OpenKakutouEngine.newMatch`/`tick`/`resetRound`/`closeMatch` calls. A
+// third, independent WASM module from `character`'s/`stage`'s own bridges —
+// same loading strategy (injectable fetch, `Function`-executed
+// `wasm_exec.js`, unawaited `go.run`) as both, but a different call shape:
+// every exposed function takes and returns exactly one JSON string rather
+// than typed arguments, so this bridge also owns `JSON.stringify`/
+// `JSON.parse` at the boundary. `newMatch`/`tick`/`closeMatch` were the only
+// calls exposed at first (see `.vibe/decisions/004`); `resetRound` was added
+// once round/match-flow logic (backlog item 007) needed it — see
+// `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
 import type {
   EngineResult,
   NewMatchRequest,
   NewMatchResponseData,
+  ResetRoundRequest,
+  ResetRoundResponseData,
   TickRequest,
   TickResponseData,
 } from "./engine-types.ts";
@@ -34,6 +38,7 @@ interface RawCallResult {
 interface OpenKakutouEngineGlobal {
   newMatch(requestJSON: string): RawCallResult;
   tick(requestJSON: string): RawCallResult;
+  resetRound(requestJSON: string): RawCallResult;
   closeMatch(requestJSON: string): RawCallResult;
 }
 
@@ -178,6 +183,24 @@ export async function tick(
   await ensureGoRuntimeReady(options);
   const raw = getOpenKakutouEngine().tick(JSON.stringify(request));
   return parseEnvelope<TickResponseData>(raw, "tick");
+}
+
+/**
+ * Restores `request.matchId`'s session to a fresh next round: both fighters
+ * back to their given starting state/position/health, a fresh round timer,
+ * and each fighter's own command-recognition/combo runtime state reset the
+ * same way match start does. The next round number is computed by the
+ * session itself (its current round + 1) — `request` never supplies one.
+ * `Progress` (rounds won so far) is untouched by a reset, only readable
+ * again from the next `tick()` call's own response.
+ */
+export async function resetRound(
+  request: ResetRoundRequest,
+  options: EngineWasmBridgeOptions = {},
+): Promise<EngineResult<ResetRoundResponseData>> {
+  await ensureGoRuntimeReady(options);
+  const raw = getOpenKakutouEngine().resetRound(JSON.stringify(request));
+  return parseEnvelope<ResetRoundResponseData>(raw, "resetRound");
 }
 
 /** Releases `matchId`'s Go-resident session state. A caller done with a match ID (match ended, page navigated away) should call this, or that session's runtime state stays resident for the life of the WASM instance. */

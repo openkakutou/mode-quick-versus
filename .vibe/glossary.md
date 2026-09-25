@@ -32,6 +32,19 @@ _Sources: `src/rendering/scene-composition.ts`_
 The heads-up display shown throughout a match: each player's lifebar and power/meter bar, plus the round display (current round number, each player's round wins, and the configured best-of). Driven live by `engine`'s per-tick match state; if that state is ever malformed or unexpected, the HUD shows one clear error message instead of a broken bar or a frozen/crashed match.
 _Sources: `src/hud/hud-view-model.ts`, `src/hud/hud-renderer.ts`_
 
+## Round result
+Who won the round that just ended — one player, or a draw (a double KO, or a timeout with both fighters at exactly equal health). Shown automatically for a few seconds before the next round starts; not a decision, so no player action is needed to continue.
+**Do not confuse with:** Match result — a round result never offers Rematch/Back to select, and a drawn round doesn't end the match on its own.
+_Sources: `src/result/outcome.ts`, `src/result/result-screen.ts`_
+
+## Match result
+Who won the match overall — one player, or (only in an unexpected/ambiguous underlying state) a draw, since a real match's round count is always odd and can never draw on its own. Offers exactly two choices: Rematch (instantly replays the match with the same characters, stage, and settings) or Back to select (returns to character selection).
+_Sources: `src/result/outcome.ts`, `src/result/result-screen.ts`, `src/rendering/match-renderer.ts`_
+
+## CPU opponent
+A computer-controlled stand-in for player 2, chosen on the match setup screen's Player 2 Control option (Human or CPU, defaulting to Human) — a minimal first pass, not a full AI: it moves toward its opponent and occasionally attacks, driven through the exact same input path a real player's keyboard or gamepad would use.
+_Sources: `src/setup/setup-screen.ts`, `src/cpu/cpu-controller.ts`, `src/cpu/cpu-input-source.ts`_
+
 ## Power / meter
 A fighter's super gauge value, gained and spent during a match, shown as its own bar in the in-match HUD alongside the lifebar. Reported live by `engine` as a raw number; this app renders it as a percentage of a fixed placeholder cap, since `engine` does not itself publish that cap as part of its match-state contract.
 _Sources: `src/hud/hud-view-model.ts`, `src/rendering/match-config.ts`_

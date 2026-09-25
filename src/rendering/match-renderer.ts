@@ -1,3 +1,4 @@
+import { createCpuAwareInputSource } from "../cpu/cpu-input-source.ts";
 import { type Hud, createHud } from "../hud/hud-renderer.ts";
 import {
   type InputSourceKind,
@@ -5,10 +6,17 @@ import {
   type TickInputSource,
   createTickInputSource,
 } from "../input/tick-input-source.ts";
+import { deriveMatchOutcome, deriveRoundOutcome } from "../result/outcome.ts";
+import {
+  type ResultOverlay,
+  type ResultOverlayOptions,
+  createResultOverlay,
+} from "../result/result-screen.ts";
 import { resolveSprites as defaultResolveCharacterSprites } from "../wasm/bridge.ts";
 import {
   closeMatch as defaultCloseMatch,
   newMatch as defaultNewMatch,
+  resetRound as defaultResetRound,
   tick as defaultTick,
 } from "../wasm/engine-bridge.ts";
 import type {
@@ -16,6 +24,8 @@ import type {
   EngineResult,
   Facing,
   FighterAnimState,
+  RoundResult,
+  Side,
   TickResponseData,
 } from "../wasm/engine-types.ts";
 import {
@@ -42,7 +52,13 @@ import {
   findAnimationByNumber,
   resolveCurrentFrame,
 } from "./animation-resolution.ts";
-import { type MatchConfigInput, buildNewMatchRequest } from "./match-config.ts";
+import {
+  type MatchConfigInput,
+  buildNewMatchRequest,
+  buildStartingFighters,
+  resolveRoundTimerTicks,
+  resolveStageBoundaries,
+} from "./match-config.ts";
 import {
   type DrawCommand,
   type FighterRenderInput,
@@ -81,6 +97,18 @@ export interface MatchRendererInput {
   player2: MatchRendererCharacterInput;
   stage: MatchRendererStageInput;
   config: MatchConfigInput;
+  /** Who drives player 2 (backlog item 007). Defaults to `"human"` when omitted. */
+  player2Control?: "human" | "cpu";
+  /**
+   * Called when the player activates "Back to select" on the match result
+   * screen — the rendering module has no business knowing about roster/
+   * stage/selection screens, so this is the caller's own escape hatch
+   * (`main.ts` wires it to re-show character selection). `renderMatch`
+   * always calls its own `stop()` first, releasing the `engine` session and
+   * input listeners, before invoking this. See
+   * `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
+   */
+  onBackToSelect: () => void;
 }
 
 export interface MatchRendererHandle {
@@ -108,12 +136,15 @@ function snapshotFighters(
 
 type NewMatchFn = typeof defaultNewMatch;
 type TickFn = typeof defaultTick;
+type ResetRoundFn = typeof defaultResetRound;
 type CloseMatchFn = typeof defaultCloseMatch;
 type ResolveAnimationFramesFn = typeof defaultResolveAnimationFrames;
 
 export interface MatchRendererOptions {
   newMatch?: NewMatchFn;
   tick?: TickFn;
+  /** Advances to the next round once a round result's auto-advance countdown completes. Defaults to the real bridge's `resetRound`. */
+  resetRound?: ResetRoundFn;
   closeMatch?: CloseMatchFn;
   resolveCharacterSprites?: ResolveSpritesFn;
   resolveStageSprites?: ResolveSpritesFn;
@@ -133,6 +164,8 @@ export interface MatchRendererOptions {
   createInputSource?: (
     onSourceChange: (playerIndex: 0 | 1, source: InputSourceKind) => void,
   ) => TickInputSource;
+  /** Overrides the round/match result overlay entirely — for testing. Defaults to a real `createResultOverlay(options)`. */
+  createResultOverlay?: (options: ResultOverlayOptions) => ResultOverlay;
 }
 
 /** A previous call's stop function, per root element, so a new call on the same root cleans up its predecessor's loop before starting its own — mirrors `stage-viewer-web`'s own established convention. */
@@ -142,6 +175,7 @@ function resolveOptions(options: MatchRendererOptions) {
   return {
     newMatch: options.newMatch ?? defaultNewMatch,
     tick: options.tick ?? defaultTick,
+    resetRound: options.resetRound ?? defaultResetRound,
     closeMatch: options.closeMatch ?? defaultCloseMatch,
     resolveCharacterSprites:
       options.resolveCharacterSprites ?? defaultResolveCharacterSprites,
@@ -163,6 +197,7 @@ function resolveOptions(options: MatchRendererOptions) {
       ((
         onSourceChange: (playerIndex: 0 | 1, source: InputSourceKind) => void,
       ) => createTickInputSource({ onSourceChange })),
+    createResultOverlay: options.createResultOverlay ?? createResultOverlay,
   };
 }
 
@@ -398,7 +433,47 @@ export async function renderMatch(
   });
   renderInputStatus();
 
-  root.append(hud.element, canvas, liveRegion, inputStatus);
+  // Composes with, rather than replaces, the human input source: player 1's
+  // input is untouched; player 2's is decided by the CPU controller instead
+  // of a real device, via the same `TickInputSource` contract every other
+  // caller downstream already relies on. See
+  // `.vibe/decisions/010-round-match-result-and-cpu-opponent-design.md`.
+  const effectiveInputSource: TickInputSource =
+    input.player2Control === "cpu"
+      ? createCpuAwareInputSource({
+          baseSource: inputSource,
+          getObservation: () => ({
+            self: { position: latestFighterStates[1].position },
+            opponent: { position: latestFighterStates[0].position },
+          }),
+        })
+      : inputSource;
+
+  const resultOverlay = deps.createResultOverlay({
+    onRoundResultDone: () => {
+      void continueToNextRound();
+    },
+    onRematch: () => {
+      // A fresh `renderMatch` call on the same `root` stops this instance
+      // first (the existing `activeLoopByRoot` convention below), which
+      // closes the old `engine` session and disposes this overlay along
+      // with the input source/HUD -- restarting from round 1 with the
+      // exact same characters/stage/config, no selection-screen detour.
+      void renderMatch(root, input, options);
+    },
+    onBackToSelect: () => {
+      stop();
+      input.onBackToSelect();
+    },
+  });
+
+  root.append(
+    hud.element,
+    canvas,
+    liveRegion,
+    inputStatus,
+    resultOverlay.element,
+  );
   canvas.focus();
   liveRegion.textContent = "Match started";
 
@@ -418,13 +493,21 @@ export async function renderMatch(
   // full state (health, power), which the canvas-drawing path never reads.
   let latestState = created.data.state;
   let latestProgress = created.data.progress;
+  // Set by `runTicks` the instant a tick's `RoundResult` is decided
+  // (`outcome !== OutcomeNone`), and consumed by `frame()` right after that
+  // same frame's final sprite resolve/draw/HUD update -- see
+  // `.vibe/decisions/010`.
+  let pendingRoundResult: RoundResult | null = null;
+  let pendingMatchOver = false;
+  let pendingMatchWinner: Side = 0;
 
   function stop(): void {
     if (stopped) return;
     stopped = true;
     if (rafHandle !== null) deps.cancelAnimationFrame(rafHandle);
-    inputSource.dispose();
+    effectiveInputSource.dispose();
     hud.dispose();
+    resultOverlay.dispose();
     deps.closeMatch(matchId).catch(() => {
       // A failure to release the session is not user-visible — the
       // session simply stays resident for the life of the WASM instance,
@@ -433,6 +516,14 @@ export async function renderMatch(
     });
   }
 
+  /**
+   * Runs up to `count` simulation ticks, stopping immediately -- mid-burst,
+   * before this frame's remaining catch-up ticks -- the instant a tick's
+   * `RoundResult` is decided. Calling `tick()` again after a round is
+   * already decided would double-count that round's win server-side (see
+   * `engine`'s own `round.Progress.RecordRoundResult`), so the burst is cut
+   * short rather than finishing its full `count` regardless of outcome.
+   */
   async function runTicks(
     count: number,
     inputs: TickInputPair,
@@ -454,8 +545,83 @@ export async function renderMatch(
       latestState = result.data.state;
       latestProgress = result.data.progress;
       stageElapsedTicks += 1;
+      if (result.data.round.outcome !== 0) {
+        pendingRoundResult = result.data.round;
+        pendingMatchOver = result.data.matchOver;
+        pendingMatchWinner = result.data.matchWinner;
+        return true;
+      }
     }
     return true;
+  }
+
+  /**
+   * Shows the round or match result once `pendingRoundResult` is set,
+   * favoring the match result when the match is also over (a round-then-
+   * match double announcement would flash the round result screen for one
+   * frame before immediately replacing it -- see the UX consultation).
+   */
+  function handleRoundOrMatchEnd(): void {
+    const round = pendingRoundResult;
+    const matchOver = pendingMatchOver;
+    const matchWinner = pendingMatchWinner;
+    pendingRoundResult = null;
+    pendingMatchOver = false;
+    pendingMatchWinner = 0;
+    if (!round) return;
+
+    const matchEnd = deriveMatchOutcome(matchOver, matchWinner);
+    if (matchEnd) {
+      resultOverlay.showMatchResult(matchEnd);
+      return;
+    }
+    const roundEnd = deriveRoundOutcome(round, latestState.round);
+    if (!roundEnd) return; // Defensive: unreachable, `round.outcome !== 0` already implied a result.
+    resultOverlay.showRoundResult(roundEnd);
+  }
+
+  /**
+   * Advances to the next round once a round result's auto-advance countdown
+   * completes: resets both fighters to a fresh starting state via
+   * `resetRound`, hides the overlay, and resumes the tick loop -- the
+   * accumulator/timestamp are reset the same way match start seeds them, so
+   * the first post-reset frame doesn't replay a stale accumulator as an
+   * immediate catch-up burst against the fresh round.
+   */
+  async function continueToNextRound(): Promise<void> {
+    const bounds = resolveStageBoundaries(input.stage.stage);
+    const starting = buildStartingFighters(bounds);
+    const roundTimer = resolveRoundTimerTicks(input.config.timeLimit);
+
+    const result = await deps.resetRound({ matchId, roundTimer, starting });
+    if (!result.ok) {
+      resultOverlay.hide();
+      status.textContent = `Match rendering stopped: ${result.error}`;
+      root.append(status);
+      stop();
+      return;
+    }
+
+    latestState = result.data.state;
+    latestFighterStates = snapshotFighters(result.data.state.fighters);
+    latestAnimations = result.data.animations;
+    stageElapsedTicks = 0;
+    resultOverlay.hide();
+
+    lastTimestamp = deps.now();
+    accumulatorMs = 0;
+
+    const frames = await resolveFighterSprites(latestAnimations);
+    await resolveStageSprites();
+    if (stopped) return;
+    drawCurrentState(latestFighterStates, frames);
+    try {
+      hud.update(latestState, latestProgress);
+    } catch {
+      // Same narrow guard as `frame()`'s own HUD update below.
+    }
+
+    rafHandle = deps.requestAnimationFrame((ts) => void frame(ts));
   }
 
   async function frame(timestamp: number): Promise<void> {
@@ -476,7 +642,7 @@ export async function renderMatch(
       // Read once per rendered frame, not once per tick: this same
       // snapshot is reused for every tick in this frame's catch-up burst —
       // see `.vibe/decisions/005-input-routing-design.md`.
-      const inputs = inputSource.read();
+      const inputs = effectiveInputSource.read();
       const ok = await runTicks(ticksToRun, inputs);
       if (!ok) return;
       const frames = await resolveFighterSprites(latestAnimations);
@@ -494,6 +660,17 @@ export async function renderMatch(
       } catch {
         // Swallowed deliberately -- a HUD rendering defect degrades the
         // HUD, never match simulation/input handling.
+      }
+
+      if (pendingRoundResult) {
+        // The round/match just ended on this exact frame's final tick: this
+        // frame's own sprite resolve/draw/HUD update above already show the
+        // state that decided it (the KO pose), so freezing here -- not
+        // rescheduling another `requestAnimationFrame` -- is what actually
+        // keeps that frame on screen behind the result overlay. See
+        // `.vibe/decisions/010`.
+        handleRoundOrMatchEnd();
+        return;
       }
     }
 
