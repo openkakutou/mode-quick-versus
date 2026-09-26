@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 ---
 # Match Audio Playback
 
@@ -13,4 +13,4 @@ A match currently runs and renders completely silent: no stage background music,
 - [ ] A background/foreground tab switch (web) or window focus loss (native) doesn't desync or pile up queued sound triggers on return
 
 ## Notes
-Cross-repo: blocked on `stage#013` (Music path), `engine#020` (PlaySnd events), and `character#057` (decoded character sounds) — the last two depend transitively on the not-yet-created `snd` repo. See roadmap `.vibe/decisions/026`. No local `depends_on` entry — all three blockers are in other repos, none in this repo's own numbering; re-check all three sources before picking this up.
+Cross-repo: was blocked on `stage#013` (Music path), `engine#020` (PlaySnd events), and `character#057` (decoded character sounds). Unblocked as of 2026-09-26: `stage#013` published as `stage` v0.13.0, `character#057` published as `character` v0.9.0, `engine#020` published as `engine` v2.5.0. See roadmap `.vibe/decisions/026`. No local `depends_on` entry — all three blockers were in other repos, none in this repo's own numbering.
