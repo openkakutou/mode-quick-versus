@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-27
+
 ### Added
 
 - Match audio (web build): a stage's background music now plays on loop for the whole match, and each fighter's hit/voice/taunt sound effects now play the moment they're triggered during combat. A stage with no background music, or a character sound that can't be matched, plays silently instead of causing an error or interrupting the match. Switching away from the browser tab and back doesn't cause audio to glitch or pile up. The native (Windows/Mac/Linux/Android) build does not yet play audio — no native build of this app exists in this repo yet, tracked as this item staying open.
@@ -78,7 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.8.0...v0.9.0
