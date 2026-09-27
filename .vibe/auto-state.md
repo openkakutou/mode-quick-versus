@@ -1,9 +1,7 @@
 ---
-status: running
+status: idle
 started: 2026-09-27T05:00
 limit: 1
-current: 013
-attempt: 1
 ---
 # Auto run journal
 
@@ -35,4 +33,4 @@ attempt: 1
 - 008 — feature — blocked: native go-gl+SDL2 build unsupported in this sandbox (no SDL2 dev headers/pkg-config, no sudo, no display server, no Windows/Mac cross-compile toolchain); web packaging (deploy pipeline + WASM load-failure error handling) shipped (23c95f5); surfaced backlog item 014 (visual-regression baseline drift)
 
 ## 2026-09-27T05:00 — run started (limit: 1, via /vibe:next-task auto 1)
-- 013 — feature — in_progress
+- 013 — feature — blocked: web audio (music + PlaySnd effects) shipped (ca7085e); native SDL2_mixer half unimplementable in this environment (no native app yet, no SDL2/display toolchain, see .vibe/decisions/013)
