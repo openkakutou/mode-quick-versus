@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Match audio (web build): a stage's background music now plays on loop for the whole match, and each fighter's hit/voice/taunt sound effects now play the moment they're triggered during combat. A stage with no background music, or a character sound that can't be matched, plays silently instead of causing an error or interrupting the match. Switching away from the browser tab and back doesn't cause audio to glitch or pile up. The native (Windows/Mac/Linux/Android) build does not yet play audio — no native build of this app exists in this repo yet, tracked as this item staying open.
+
 ## [0.11.0] - 2026-09-25
 
 ### Added

@@ -29,6 +29,32 @@ describe("fetchRosterManifest", () => {
     });
   });
 
+  it("accepts an entry that declares an optional .snd sound file path (backlog item 013)", async () => {
+    const withSound = {
+      ...entry("ryu"),
+      files: { ...entry("ryu").files, snd: "roster/ryu/character.snd" },
+    };
+    const source = JSON.stringify([withSound]);
+
+    const result = await fetchRosterManifest({
+      fetchManifestSource: async () => source,
+    });
+
+    expect(result).toEqual({ ok: true, entries: [withSound] });
+  });
+
+  it("accepts an entry with no .snd file path -- a character with no sound file is valid", async () => {
+    const source = JSON.stringify([entry("ryu")]);
+
+    const result = await fetchRosterManifest({
+      fetchManifestSource: async () => source,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.entries[0].files.snd).toBeUndefined();
+  });
+
   it("treats an empty array as a valid, empty roster", async () => {
     const result = await fetchRosterManifest({
       fetchManifestSource: async () => "[]",
@@ -45,6 +71,22 @@ describe("fetchRosterManifest", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected an error result");
     expect(result.error).toContain("not valid JSON");
+  });
+
+  it("returns a typed error instead of throwing when an entry's .snd path is not a string", async () => {
+    const invalid = {
+      ...entry("ryu"),
+      files: { ...entry("ryu").files, snd: 42 },
+    };
+    const source = JSON.stringify([invalid]);
+
+    const result = await fetchRosterManifest({
+      fetchManifestSource: async () => source,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected an error result");
+    expect(result.error).toContain("index 0");
   });
 
   it("returns a typed error instead of throwing when an entry is missing required fields", async () => {

@@ -66,13 +66,15 @@ export interface StageBoundaries {
   bottomBound: number;
 }
 
-/** The subset of a loaded stage's data this app consumes: its name, stage-level settings, BG elements/layers, animation blocks, and character movement boundaries. 3D-only fields are out of scope (see module doc comment). */
+/** The subset of a loaded stage's data this app consumes: its name, stage-level settings, BG elements/layers, animation blocks, character movement boundaries, and background music path. 3D-only fields are out of scope (see module doc comment). */
 export interface StageSummary {
   name: string;
   bgDef: BGdef;
   elements: BGElement[];
   animations: Record<string, BGAnimation>;
   stageBoundaries: StageBoundaries;
+  /** This stage's background music file path (`.def`'s `[Music]` "bgmusic"), relative to the stage's own folder — resolved the same way `bgDef.spriteFile` is (see `main.ts`'s `resolveStageAssetPath`). Empty when the `.def` declares no `[Music]` section (backlog item 013). */
+  musicFile: string;
 }
 
 /**

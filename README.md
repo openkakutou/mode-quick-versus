@@ -14,6 +14,7 @@ This project is in early-stage development. Available now:
 - In-match HUD: both players' lifebar and power/meter bar update live throughout the match, alongside the current round number, each player's round wins, and the configured best-of. If the match's underlying data ever becomes unreadable, the HUD shows a clear message instead of freezing or crashing the match.
 - Round and match results: when a round ends, a clear result appears showing the round winner (or a draw) and automatically continues to the next round after a short countdown — no click needed. When the match itself ends, a result screen shows the overall winner (or a draw) with two choices: instantly rematch with the same characters, stage, and settings, or return to character selection.
 - Single-player mode: a "Player 2 Control" choice on the match setup screen lets one player face a computer-controlled opponent instead of a second human — a minimal first pass, not a full AI, that moves toward its opponent and attacks on its own.
+- Match audio (web build): a stage's background music now plays on loop for the whole match, and each fighter's hit/voice/taunt sound effects play the moment they happen during combat. Missing or unplayable audio for one stage or character never interrupts the match — it just plays silently instead. Switching away from the browser tab and back doesn't cause audio to glitch or pile up.
 
 - Automatic web publishing: every update to the main line is tested, checked, built, and published live once everything passes, with no manual step. If a character, stage, or match engine module fails to load at runtime, the affected screen shows a clear message instead of a blank page.
 
@@ -44,13 +45,13 @@ npm update
 Download a specific version of the `character` library's WebAssembly build (needed to load a character):
 
 ```sh
-npm run wasm:download -- v0.7.1
+npm run wasm:download -- v0.9.1
 ```
 
 Download a specific version of the `stage` library's WebAssembly build (needed to load a stage):
 
 ```sh
-npm run wasm:download:stage -- v0.11.1
+npm run wasm:download:stage -- v0.13.0
 ```
 
 Download a specific version of the `engine` library's WebAssembly build (needed to run a match):

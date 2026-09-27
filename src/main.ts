@@ -30,6 +30,7 @@ import {
 } from "./wasm/bridge.ts";
 import type { CommandFileBlob } from "./wasm/engine-types.ts";
 import { type StageWasmBridgeOptions, loadStage } from "./wasm/stage-bridge.ts";
+import type { StageSummary } from "./wasm/stage-types.ts";
 
 const APP_TITLE = "Quick Versus";
 
@@ -197,6 +198,7 @@ async function showRosterSelection(
         airBytes,
         sffBytes,
         cnsBytes,
+        null,
         options.bridgeOptions,
       ));
 
@@ -341,12 +343,14 @@ async function startMatch(
       airBytes: Uint8Array,
       sffBytes: Uint8Array,
       cnsBytes: Uint8Array,
+      sndBytes?: Uint8Array | null,
     ) =>
       loadCharacter(
         defBytes,
         airBytes,
         sffBytes,
         cnsBytes,
+        sndBytes,
         options.bridgeOptions,
       ));
   const resolveStage =
@@ -375,14 +379,37 @@ async function startMatch(
       fetchBytes(entry.files.sff),
       fetchBytes(entry.files.cns),
     ]);
+    const sndBytes = await loadFighterSound(entry);
     const result = await resolveCharacter(
       defBytes,
       airBytes,
       sffBytes,
       cnsBytes,
+      sndBytes,
     );
     const commands = await loadFighterCommands(entry);
     return { result, sffBytes, commands };
+  }
+
+  /**
+   * Fetches this fighter's own `.snd` sound file, if the manifest lists one,
+   * so its decoded sound effects (backlog item 013) are available during
+   * the match. A character with no `files.snd` entry is valid (many
+   * characters legitimately have no sound file) and resolves to `null`
+   * (no sound data) without fetching anything; a fetch failure for a
+   * *declared* path degrades the same way — no sounds for this one
+   * fighter — rather than blocking the whole match, same "degrade, don't
+   * block" precedent as `loadFighterCommands` below.
+   */
+  async function loadFighterSound(
+    entry: RosterManifestEntry,
+  ): Promise<Uint8Array | null> {
+    if (!entry.files.snd) return null;
+    try {
+      return await fetchBytes(entry.files.snd);
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -426,7 +453,7 @@ async function startMatch(
     // 050 precedent).
     stageSffBytes = stageLoaded.ok
       ? await fetchBytes(
-          resolveStageSffPath(
+          resolveStageAssetPath(
             stageEntry.files.def,
             stageLoaded.stage.bgDef.spriteFile,
           ),
@@ -467,6 +494,8 @@ async function startMatch(
     return;
   }
 
+  const musicBytes = await loadStageMusicBytes(stageEntry, stageLoaded.stage);
+
   await renderMatch(main, {
     player1: {
       character: player1Loaded.result.character,
@@ -478,28 +507,49 @@ async function startMatch(
       sffBytes: player2Loaded.sffBytes,
       commands: player2Loaded.commands,
     },
-    stage: { stage: stageLoaded.stage, sffBytes: stageSffBytes },
+    stage: { stage: stageLoaded.stage, sffBytes: stageSffBytes, musicBytes },
     config,
     player2Control: config.player2Control,
     onBackToSelect: () => {
       void showRosterSelection(main, options);
     },
   });
+
+  /**
+   * Fetches this stage's background music file, if its `.def` declared one
+   * (backlog item 013), resolved by basename against the `.def`'s own
+   * directory -- same convention as its `.sff` sprite sheet, see
+   * `resolveStageAssetPath` below. A stage with no `[Music]` section, or a
+   * fetch failure for a declared path, degrades to no background music
+   * (`null`) rather than blocking match start -- same "degrade, don't
+   * block" precedent as a fighter's own optional `.snd` file above.
+   */
+  async function loadStageMusicBytes(
+    entry: StageManifestEntry,
+    stageSummary: StageSummary,
+  ): Promise<Uint8Array | null> {
+    if (!stageSummary.musicFile) return null;
+    try {
+      return await fetchBytes(
+        resolveStageAssetPath(entry.files.def, stageSummary.musicFile),
+      );
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
- * Resolves a stage's `.sff` sprite sheet path by basename against its
- * `.def` file's own directory — the stage manifest never lists it
- * explicitly (unlike the roster manifest's character files), since a
- * stage's `.def` references its own sheet internally (`[BGDef] "spr"`).
+ * Resolves a stage asset (its `.sff` sprite sheet, its background music
+ * file) by basename against its `.def` file's own directory — the stage
+ * manifest never lists either explicitly (unlike the roster manifest's
+ * character files), since a stage's `.def` references both internally
+ * (`[BGDef] "spr"`, `[Music] "bgmusic"`).
  */
-function resolveStageSffPath(
-  stageDefPath: string,
-  spriteFileName: string,
-): string {
+function resolveStageAssetPath(stageDefPath: string, fileName: string): string {
   const lastSlash = stageDefPath.lastIndexOf("/");
   const dir = lastSlash === -1 ? "" : stageDefPath.slice(0, lastSlash + 1);
-  const basename = spriteFileName.replace(/\\/g, "/").split("/").pop() ?? "";
+  const basename = fileName.replace(/\\/g, "/").split("/").pop() ?? "";
   return `${dir}${basename}`;
 }
 

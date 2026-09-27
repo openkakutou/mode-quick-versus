@@ -30,14 +30,26 @@ const stageManifestSource = JSON.stringify([
 
 function okLoadCharacter(name: string) {
   return vi.fn(
-    async (): Promise<CharacterResult> => ({
+    async (
+      _defBytes: Uint8Array,
+      _airBytes: Uint8Array,
+      _sffBytes: Uint8Array,
+      _cnsBytes: Uint8Array,
+      _sndBytes?: Uint8Array | null,
+    ): Promise<CharacterResult> => ({
       ok: true,
-      character: { name, animations: [], sprites: [], stateDefs: [] },
+      character: {
+        name,
+        animations: [],
+        sprites: [],
+        stateDefs: [],
+        sounds: [],
+      },
     }),
   );
 }
 
-function okLoadStage(name: string) {
+function okLoadStage(name: string, musicFile = "") {
   return vi.fn(
     async (): Promise<StageResult> => ({
       ok: true,
@@ -57,6 +69,7 @@ function okLoadStage(name: string) {
         elements: [],
         animations: {},
         stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+        musicFile,
       },
     }),
   );
@@ -361,6 +374,136 @@ describe("renderApp", () => {
     });
   });
 
+  it("fetches and forwards a fighter's own .snd file to loadCharacter when the manifest declares one (backlog item 013)", async () => {
+    const root = document.createElement("div");
+    const soundManifestSource = JSON.stringify([
+      {
+        id: "ryu",
+        portrait: "roster/ryu/portrait.png",
+        files: {
+          def: "roster/ryu/character.def",
+          air: "roster/ryu/character.air",
+          sff: "roster/ryu/character.sff",
+          cns: "roster/ryu/character.cns",
+          cmd: "roster/ryu/character.cmd",
+          snd: "roster/ryu/character.snd",
+        },
+      },
+    ]);
+    const sndFileBytes = new TextEncoder().encode("snd-bytes");
+    const fetchBytes = vi.fn(async (filePath: string) =>
+      filePath === "roster/ryu/character.snd" ? sndFileBytes : new Uint8Array(),
+    );
+    const loadCharacter = okLoadCharacter("Ryu");
+
+    const { renderMatch } = await renderAndStartMatch(root, {
+      manifestOptions: { fetchManifestSource: async () => soundManifestSource },
+      fetchBytes,
+      loadCharacter,
+    });
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    // Call 0 is roster discovery's own load (no sndBytes, 4-arg call);
+    // calls 1 and 2 are match assembly's own loadFighter for player 1/2.
+    expect(loadCharacter.mock.calls[1][4]).toEqual(sndFileBytes);
+    expect(loadCharacter.mock.calls[2][4]).toEqual(sndFileBytes);
+    expect(fetchBytes).toHaveBeenCalledWith("roster/ryu/character.snd");
+  });
+
+  it("starts the match with no sound data for a fighter whose manifest entry declares no .snd path", async () => {
+    const root = document.createElement("div");
+    const loadCharacter = okLoadCharacter("Ryu");
+
+    const { renderMatch } = await renderAndStartMatch(root, { loadCharacter });
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    expect(loadCharacter.mock.calls[1][4]).toBeNull();
+    expect(loadCharacter.mock.calls[2][4]).toBeNull();
+  });
+
+  it("still starts the match, degrading to no sound for that fighter, when a declared .snd file fails to fetch", async () => {
+    const root = document.createElement("div");
+    const soundManifestSource = JSON.stringify([
+      {
+        id: "ryu",
+        portrait: "roster/ryu/portrait.png",
+        files: {
+          def: "roster/ryu/character.def",
+          air: "roster/ryu/character.air",
+          sff: "roster/ryu/character.sff",
+          cns: "roster/ryu/character.cns",
+          cmd: "roster/ryu/character.cmd",
+          snd: "roster/ryu/character.snd",
+        },
+      },
+    ]);
+    const fetchBytes = vi.fn(async (filePath: string) => {
+      if (filePath === "roster/ryu/character.snd") {
+        throw new Error("404 not found");
+      }
+      return new Uint8Array();
+    });
+    const loadCharacter = okLoadCharacter("Ryu");
+
+    const { main, renderMatch } = await renderAndStartMatch(root, {
+      manifestOptions: { fetchManifestSource: async () => soundManifestSource },
+      fetchBytes,
+      loadCharacter,
+    });
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    expect(main.textContent).not.toContain("404 not found");
+    expect(loadCharacter.mock.calls[1][4]).toBeNull();
+  });
+
+  it("fetches and forwards the stage's background music file to match rendering when its .def declares one (backlog item 013)", async () => {
+    const root = document.createElement("div");
+    const musicBytes = new TextEncoder().encode("music-bytes");
+    const fetchBytes = vi.fn(async (filePath: string) =>
+      filePath === "stages/training-room/bgm.ogg"
+        ? musicBytes
+        : new Uint8Array(),
+    );
+
+    const { renderMatch } = await renderAndStartMatch(root, {
+      fetchBytes,
+      loadStage: okLoadStage("Training Room", "bgm.ogg"),
+    });
+
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.stage.musicBytes).toEqual(musicBytes);
+    expect(fetchBytes).toHaveBeenCalledWith("stages/training-room/bgm.ogg");
+  });
+
+  it("starts the match with no background music when the stage's .def declares no [Music] section", async () => {
+    const root = document.createElement("div");
+
+    const { renderMatch } = await renderAndStartMatch(root);
+
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.stage.musicBytes).toBeNull();
+  });
+
+  it("still starts the match with no background music when the stage's declared music file fails to fetch", async () => {
+    const root = document.createElement("div");
+    const fetchBytes = vi.fn(async (filePath: string) => {
+      if (filePath === "stages/training-room/bgm.ogg") {
+        throw new Error("404 not found");
+      }
+      return new Uint8Array();
+    });
+
+    const { main, renderMatch } = await renderAndStartMatch(root, {
+      fetchBytes,
+      loadStage: okLoadStage("Training Room", "bgm.ogg"),
+    });
+
+    expect(renderMatch).toHaveBeenCalledTimes(1);
+    expect(main.textContent).not.toContain("404 not found");
+    const [, input] = renderMatch.mock.calls[0];
+    expect(input.stage.musicBytes).toBeNull();
+  });
+
   it("shows a clear error message instead of a blank screen when a match asset fails to (re)load", async () => {
     const root = document.createElement("div");
     let callCount = 0;
@@ -378,6 +521,7 @@ describe("renderApp", () => {
               animations: [],
               sprites: [],
               stateDefs: [],
+              sounds: [],
             },
           };
         }

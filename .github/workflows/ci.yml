@@ -56,10 +56,10 @@ jobs:
       # producer's own /vibe:release, per roadmap's
       # .vibe/decisions/016-wasm-version-pinning-push-based-propagation.md.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.8.0
+        run: npm run wasm:download -- v0.9.1
 
       - name: Download stage WASM release
-        run: npm run wasm:download:stage -- v0.12.0
+        run: npm run wasm:download:stage -- v0.13.0
 
       - name: Prepare visual test fixtures
         run: npm run prepare-visual-fixtures

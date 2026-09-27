@@ -10,6 +10,7 @@ import type {
   CharacterResult,
   CommandFile,
   CommandFileResult,
+  SoundGroup,
   SpriteGroup,
   SpritePixelResult,
   StateDefBlob,
@@ -50,6 +51,7 @@ interface OpenKakutouCharacterGlobal {
     airBytes: Uint8Array,
     sffBytes: Uint8Array,
     cnsBytes: Uint8Array,
+    sndBytes?: Uint8Array | null,
   ): RawLoadResult;
   loadCmd(cmdBytes: Uint8Array): RawLoadCmdResult;
   resolveSprites(
@@ -171,14 +173,19 @@ async function ensureGoRuntimeReadyOrError(
 /**
  * Loads a character from raw `.def`/`.air`/`.sff`/`.cns` file bytes via the
  * `character` WASM module, returning a typed result instead of throwing on
- * malformed/missing input. Only the `name` field is mapped out of the full
- * JSON contract — this app has no use for the rest yet.
+ * malformed/missing input. `sndBytes` is optional — omitting it, or passing
+ * `null`, means "no sound data" (a character with no sound file is valid,
+ * not an error), matching the WASM module's own `load(defBytes, airBytes,
+ * sffBytes, cnsBytes[, sndBytes])` contract (backlog item 013). `name`,
+ * `animations`, `sprites`, `stateDefs`, and `sounds` are mapped out of the
+ * full JSON contract — this app has no use for the rest yet.
  */
 export async function loadCharacter(
   defBytes: Uint8Array,
   airBytes: Uint8Array,
   sffBytes: Uint8Array,
   cnsBytes: Uint8Array,
+  sndBytes: Uint8Array | null = null,
   options: WasmBridgeOptions = {},
 ): Promise<CharacterResult> {
   const ready = await ensureGoRuntimeReadyOrError(options);
@@ -189,6 +196,7 @@ export async function loadCharacter(
     airBytes,
     sffBytes,
     cnsBytes,
+    sndBytes,
   );
 
   if (raw.error !== null) {
@@ -202,13 +210,15 @@ export async function loadCharacter(
     };
   }
 
-  // `name`, `animations`, `sprites`, and `stateDefs` are picked out of the
-  // full JSON payload, matching what `CharacterSummary` actually promises.
+  // `name`, `animations`, `sprites`, `stateDefs`, and `sounds` are picked
+  // out of the full JSON payload, matching what `CharacterSummary` actually
+  // promises.
   const parsed = JSON.parse(raw.character) as {
     name: string;
     animations: Animation[];
     sprites: SpriteGroup[];
     stateDefs: StateDefBlob[];
+    sounds: SoundGroup[] | null;
   };
   return {
     ok: true,
@@ -217,6 +227,7 @@ export async function loadCharacter(
       animations: parsed.animations,
       sprites: parsed.sprites,
       stateDefs: parsed.stateDefs,
+      sounds: parsed.sounds ?? [],
     },
   };
 }

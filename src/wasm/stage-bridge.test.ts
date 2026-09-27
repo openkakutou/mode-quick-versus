@@ -61,6 +61,30 @@ describe("loadStage", () => {
     expect(result.stage.animations).toEqual({});
   });
 
+  it("returns the stage's background music file path when its .def declares one (backlog item 013)", async () => {
+    const defBytes = textBytes(
+      "[Info]\nname = Music Test Stage\n\n[BGDef]\nspr = stage0.sff\n\n[Music]\nbgmusic = bgm.ogg\n",
+    );
+
+    const result = await loadStage(defBytes, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.stage.musicFile).toBe("bgm.ogg");
+  });
+
+  it("returns an empty musicFile when the .def has no [Music] section", async () => {
+    const defBytes = textBytes(
+      "[Info]\nname = No Music Stage\n\n[BGDef]\nspr = stage0.sff\n",
+    );
+
+    const result = await loadStage(defBytes, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.stage.musicFile).toBe("");
+  });
+
   it("returns a typed error instead of throwing when the .def bytes are malformed", async () => {
     // A section header missing its closing bracket is the one `.def` shape
     // the `stage` parser actually rejects (everything else it either

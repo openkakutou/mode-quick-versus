@@ -64,12 +64,40 @@ export interface SpriteGroup {
  */
 export type StateDefBlob = Record<string, unknown>;
 
-/** The subset of a loaded character's data this app consumes: its name, animations (for match rendering), sprite metadata (for placement/axis lookup), and its combat state defs (opaque, forwarded to `engine` as-is to build a match). */
+/**
+ * One decoded MUGEN/Ikemen GO sound effect (`character.Sound`), keyed by
+ * `(group, sample)` the same way a `.cns` `PlaySnd` controller (and
+ * `engine`'s own triggered `SoundEvent`, see `engine-types.ts`) references
+ * it. `pcm` is interleaved by `channels`, normalized to signed 16-bit
+ * regardless of the source file's own bit depth — never a `Uint8Array`
+ * (unlike every other binary payload this app's bridges expose, e.g.
+ * `resolveSprites`' pixels): `character`'s WASM module marshals `Sound` as
+ * part of the whole `Character` JSON via a generic `json.Marshal`, not a
+ * dedicated binary-transfer path, so `PCM []int16` arrives as a plain JSON
+ * number array.
+ */
+export interface Sound {
+  group: number;
+  sample: number;
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+  pcm: number[];
+}
+
+/** A collection of `Sound`s sharing the same group index (`character.SoundGroup`). */
+export interface SoundGroup {
+  index: number;
+  sounds: Sound[];
+}
+
+/** The subset of a loaded character's data this app consumes: its name, animations (for match rendering), sprite metadata (for placement/axis lookup), its combat state defs (opaque, forwarded to `engine` as-is to build a match), and its decoded sound effects (backlog item 013). A character with no sound file legitimately has an empty `sounds` array — not an error. */
 export interface CharacterSummary {
   name: string;
   animations: Animation[];
   sprites: SpriteGroup[];
   stateDefs: StateDefBlob[];
+  sounds: SoundGroup[];
 }
 
 /**

@@ -31,6 +31,7 @@ describe("discoverStages", () => {
         elements: [],
         animations: {},
         stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+        musicFile: "",
       },
     });
 
@@ -95,6 +96,7 @@ describe("discoverStages", () => {
         elements: [],
         animations: {},
         stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+        musicFile: "",
       },
     });
 
@@ -134,6 +136,7 @@ describe("discoverStages", () => {
         elements: [],
         animations: {},
         stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+        musicFile: "",
       },
     });
 
@@ -169,6 +172,7 @@ describe("discoverStages", () => {
           elements: [],
           animations: {},
           stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+          musicFile: "",
         },
       }),
     });

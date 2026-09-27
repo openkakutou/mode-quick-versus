@@ -15,6 +15,8 @@ export interface RosterManifestEntry {
     cns: string;
     /** The character's `.cmd` (input command) file path, parsed at match start so routed input (backlog item 006) can resolve to recognized commands. */
     cmd: string;
+    /** The character's `.snd` sound file path, decoded at match start so its hit/voice/taunt sound effects (backlog item 013) can play. Optional and legitimately absent for a character with no sound file — unlike `def`/`air`/`sff`/`cns`/`cmd`, which every entry must have. */
+    snd?: string;
   };
   portrait: string;
 }
@@ -53,7 +55,8 @@ function isValidEntry(value: unknown): value is RosterManifestEntry {
     typeof f.air === "string" &&
     typeof f.sff === "string" &&
     typeof f.cns === "string" &&
-    typeof f.cmd === "string"
+    typeof f.cmd === "string" &&
+    (f.snd === undefined || typeof f.snd === "string")
   );
 }
 

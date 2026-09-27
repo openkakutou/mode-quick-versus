@@ -73,7 +73,14 @@ describe("discoverRoster (real WASM smoke check)", () => {
     const result = await discoverRoster([validEntry, brokenEntry], {
       fetchBytes: async (filePath) => new Uint8Array(files[filePath]),
       loadCharacter: (defBytes, airBytes, sffBytes, cnsBytes) =>
-        loadCharacter(defBytes, airBytes, sffBytes, cnsBytes, wasmOptions),
+        loadCharacter(
+          defBytes,
+          airBytes,
+          sffBytes,
+          cnsBytes,
+          null,
+          wasmOptions,
+        ),
     });
 
     expect(result).toEqual([

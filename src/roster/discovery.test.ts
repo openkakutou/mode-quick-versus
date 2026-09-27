@@ -25,7 +25,13 @@ describe("discoverRoster", () => {
     const loadCharacter = vi.fn(
       async (): Promise<CharacterResult> => ({
         ok: true,
-        character: { name: "Ryu", animations: [], sprites: [], stateDefs: [] },
+        character: {
+          name: "Ryu",
+          animations: [],
+          sprites: [],
+          stateDefs: [],
+          sounds: [],
+        },
       }),
     );
 
@@ -80,6 +86,7 @@ describe("discoverRoster", () => {
           animations: [],
           sprites: [],
           stateDefs: [],
+          sounds: [],
         },
       }),
     );
@@ -110,6 +117,7 @@ describe("discoverRoster", () => {
           animations: [],
           sprites: [],
           stateDefs: [],
+          sounds: [],
         },
       }),
     );
@@ -128,7 +136,13 @@ describe("discoverRoster", () => {
     const loadCharacter = vi.fn(
       async (): Promise<CharacterResult> => ({
         ok: true,
-        character: { name: "Kyo", animations: [], sprites: [], stateDefs: [] },
+        character: {
+          name: "Kyo",
+          animations: [],
+          sprites: [],
+          stateDefs: [],
+          sounds: [],
+        },
       }),
     );
 

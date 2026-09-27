@@ -5,6 +5,7 @@
 |---|---|---|
 | id | string | Stable identifier for the character |
 | files.def / files.air / files.sff / files.cns / files.cmd | string | Fetchable paths to the character's files, including its `.cmd` input command file |
+| files.snd | string (optional) | Fetchable path to the character's `.snd` sound file (backlog item 013) — legitimately absent for a character with no sound effects |
 | portrait | string | Fetchable path to a static preview image |
 Defined in: `src/roster/manifest.ts`
 
@@ -25,8 +26,18 @@ Defined in: `src/roster/discovery.ts`
 | animations | `Animation[]` | Every `.air` action: its number, frames (sprite ref, position, time, flip, blend, Clsn boxes), and loop-start index |
 | sprites | `SpriteGroup[]` | Sprite metadata (dimensions, axis/pivot) per `(group, image)` — no pixel data; see `resolveSprites` |
 | stateDefs | `StateDefBlob[]` | Opaque combat state defs, forwarded to `engine` unmodified — never interpreted client-side |
+| sounds | `SoundGroup[]` | The character's decoded sound effects (backlog item 013) — empty for a character with no sound file, never an error |
 | ok / character / error | `true` + `CharacterSummary`, or `false` + string | `CharacterResult` discriminated union — mirrors the WASM module's own `{character, error}` contract, never throws |
 Defined in: `src/wasm/types.ts`
+
+## Sound / SoundGroup (character sound effects)
+| Field | Type | Notes |
+|---|---|---|
+| group, sample | number | Keys a `.cns` `PlaySnd` controller (and `engine`'s own triggered `SoundEvent`) references this sound by |
+| sampleRate, channels, bitsPerSample | number | The decoded sample's own audio format |
+| pcm | `number[]` | Interleaved by `channels`, normalized to signed 16-bit — a plain JSON number array, not a `Uint8Array` (unlike every other binary payload this app's bridges expose) |
+| index | number | `SoundGroup` only — the group index shared by every `Sound` in `sounds` |
+Defined in: `src/wasm/types.ts`; converted to Web Audio `Float32Array` channels by `src/audio/pcm-conversion.ts`, resolved from a triggered `SoundEvent` by `src/audio/sound-lookup.ts`.
 
 ## SpritePixelResult
 | Field | Type | Notes |
@@ -75,6 +86,7 @@ Defined in: `src/setup/setup-screen.ts`
 | elements | `BGElement[]` | BG layers: type (normal/parallax/anim), sprite/action reference, layer number, position, parallax delta, tiling |
 | animations | `Record<string, BGAnimation>` | Every `[Begin Action N]` block, keyed by action number as a string, resolved via `resolveAnimationFrames` |
 | stageBoundaries | `StageBoundaries` | The x-range characters may move within on this stage |
+| musicFile | string | The stage's background music file path (backlog item 013) — empty when the `.def` declares no `[Music]` section |
 | ok / stage / error | `true` + `StageSummary`, or `false` + string | `StageResult` discriminated union — mirrors the WASM module's own `{stage, error}` contract, never throws |
 Defined in: `src/wasm/stage-types.ts`
 
@@ -94,8 +106,9 @@ Defined in: `src/wasm/engine-types.ts`; assembled by `src/rendering/match-config
 | winner | `0 \| 1` | Only meaningful for outcome `1`/`3` — the deciding side |
 | progress.bestOf, .wins, .roundsPlayed | number / `[number, number]` / number | Match-level bookkeeping across rounds, carried in every `tick()`/`newMatch()` response; untouched by `resetRound()` |
 | matchOver, matchWinner | boolean / `0 \| 1` | `tick()`-only: whether the whole match (not just this round) is decided, and by whom |
+| sounds | `[SoundEvent[], SoundEvent[]]` | `tick()`-only (backlog item 013): each fighter's own `PlaySnd` events triggered exactly this tick, indexed `[P1, P2]` — a discrete per-tick event log, never `null`; a skipped `tick()` response loses that tick's events permanently |
 | resetRound: matchId, roundTimer, starting | number / number / `[FighterState, FighterState]` | `ResetRoundRequest` — the next round number is computed by the session itself, never supplied |
-Defined in: `src/wasm/engine-types.ts` (`RoundResult`, `Progress`, `ResetRoundRequest`, `ResetRoundResponseData`); consumed by `src/result/outcome.ts`'s `deriveRoundOutcome`/`deriveMatchOutcome` and `src/rendering/match-renderer.ts`'s round-end handling. See `.vibe/decisions/010`.
+Defined in: `src/wasm/engine-types.ts` (`RoundResult`, `Progress`, `ResetRoundRequest`, `ResetRoundResponseData`, `SoundEvent`); consumed by `src/result/outcome.ts`'s `deriveRoundOutcome`/`deriveMatchOutcome`, `src/rendering/match-renderer.ts`'s round-end handling, and (backlog item 013) `src/audio/sound-lookup.ts`'s `findSound`. See `.vibe/decisions/010`.
 
 ## RoundEndView / MatchEndView (result screen)
 | Field | Type | Notes |

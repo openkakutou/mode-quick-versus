@@ -75,6 +75,7 @@ const noBoundaryStage: StageSummary = {
   elements: [],
   animations: {},
   stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+  musicFile: "",
 };
 
 it("resolveStageBoundaries falls back to the stage's own local coordinate width", () => {
@@ -93,6 +94,7 @@ describe("buildNewMatchRequest against the real character and engine WASM module
       airBytes,
       sffBytes,
       cnsBytes,
+      null,
       characterTestOptions,
     );
     if (!loaded.ok) throw new Error(`expected an ok load: ${loaded.error}`);
@@ -137,6 +139,7 @@ describe("buildNewMatchRequest against the real character and engine WASM module
       airBytes,
       sffBytes,
       cnsBytes,
+      null,
       characterTestOptions,
     );
     if (!loaded.ok) throw new Error(`expected an ok load: ${loaded.error}`);

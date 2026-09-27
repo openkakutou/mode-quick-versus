@@ -195,16 +195,17 @@ export async function loadStage(
     };
   }
 
-  // `name`, `bgDef`, `elements`, `animations`, and `stageBoundaries` are
-  // picked out of the full JSON payload, matching what `StageSummary`
-  // actually promises — the WASM module's contract carries more (camera
-  // bounds, 3D-only fields) that this app has no use for yet.
+  // `name`, `bgDef`, `elements`, `animations`, `stageBoundaries`, and
+  // `musicFile` are picked out of the full JSON payload, matching what
+  // `StageSummary` actually promises — the WASM module's contract carries
+  // more (camera bounds, 3D-only fields) that this app has no use for yet.
   const parsed = JSON.parse(raw.stage) as {
     name: string;
     bgDef: BGdef;
     elements: BGElement[] | null;
     animations: Record<string, BGAnimation> | null;
     stageBoundaries: StageBoundaries;
+    musicFile: string;
   };
   return {
     ok: true,
@@ -214,6 +215,7 @@ export async function loadStage(
       elements: parsed.elements ?? [],
       animations: parsed.animations ?? {},
       stageBoundaries: parsed.stageBoundaries,
+      musicFile: parsed.musicFile ?? "",
     },
   };
 }

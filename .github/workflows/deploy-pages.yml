@@ -52,10 +52,10 @@ jobs:
       # — kept identical to `ci.yml`'s own character/stage pins so the two
       # workflows never test/deploy a different WASM combination.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.8.0
+        run: npm run wasm:download -- v0.9.1
 
       - name: Download stage WASM release
-        run: npm run wasm:download:stage -- v0.12.0
+        run: npm run wasm:download:stage -- v0.13.0
 
       # `engine` publishes release build assets as of v2.4.0 (it did not
       # when `ci.yml` was first written — see that file's own comment) so

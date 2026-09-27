@@ -55,6 +55,7 @@ function character(): CharacterSummary {
       },
     ],
     stateDefs: [{ number: 0, type: "S" }],
+    sounds: [],
   };
 }
 
@@ -75,6 +76,7 @@ function stage(): StageSummary {
     elements: [],
     animations: {},
     stageBoundaries: { left: -200, right: 200, topBound: 0, bottomBound: 0 },
+    musicFile: "",
   };
 }
 
@@ -134,6 +136,7 @@ function tickResponse(
         { animNo: 0, animTime: 1 },
         { animNo: 0, animTime: 1 },
       ],
+      sounds: [[], []],
       ...overrides,
     },
   };
@@ -199,20 +202,41 @@ function fakeResultOverlay() {
   };
 }
 
+/**
+ * A fake match audio double: instead of a real `AudioContext`/Web Audio API
+ * driver (`audio/match-audio.ts`), this exposes plain `vi.fn()` spies for
+ * `playMusic`/`playSound`/`stop` -- already covered for real by
+ * `audio/match-audio.test.ts` -- so this file only has to assert on *what*
+ * `renderMatch` asked the audio controller to do, never the underlying
+ * `AudioContext` wiring itself.
+ */
+function fakeMatchAudio() {
+  const audio = {
+    playMusic: vi.fn(async () => {}),
+    playSound: vi.fn(),
+    stop: vi.fn(),
+  };
+  const createAudio = vi.fn(() => audio);
+  return { audio, createAudio };
+}
+
 function baseOptions(
   overrides: Partial<MatchRendererOptions> = {},
 ): MatchRendererOptions & {
   rafCallbacks: ((ts: number) => void)[];
   resultOverlay: ReturnType<typeof fakeResultOverlay>;
+  matchAudio: ReturnType<typeof fakeMatchAudio>;
 } {
   const rafCallbacks: ((ts: number) => void)[] = [];
   const resultOverlay = fakeResultOverlay();
+  const matchAudio = fakeMatchAudio();
   return {
     newMatch: vi.fn(async () => newMatchResponse()),
     tick: vi.fn(async () => tickResponse()),
     resetRound: vi.fn(async () => resetRoundResponse()),
     closeMatch: vi.fn(async () => ({ ok: true as const, data: {} })),
     createResultOverlay: resultOverlay.createResultOverlay,
+    createAudio: matchAudio.createAudio,
     resolveCharacterSprites: vi.fn(async (_sff, requests) =>
       requests.map(() => ({
         ok: true as const,
@@ -235,6 +259,7 @@ function baseOptions(
     now: vi.fn(() => 0),
     rafCallbacks,
     resultOverlay,
+    matchAudio,
     ...overrides,
   };
 }
@@ -432,6 +457,125 @@ describe("renderMatch", () => {
     for (const call of (options.tick as ReturnType<typeof vi.fn>).mock.calls) {
       expect(call[0].inputs).toBe(inputs);
     }
+  });
+
+  it("starts the stage's background music once the match begins (backlog item 013)", async () => {
+    const root = document.createElement("div");
+    const musicBytes = new Uint8Array([1, 2, 3]);
+    const options = baseOptions();
+    const input = baseInput();
+    input.stage.musicBytes = musicBytes;
+
+    await renderMatch(root, input, options);
+
+    expect(options.matchAudio.audio.playMusic).toHaveBeenCalledWith(musicBytes);
+  });
+
+  it("starts the match with no background music when the stage declares none", async () => {
+    const root = document.createElement("div");
+    const options = baseOptions();
+
+    await renderMatch(root, baseInput(), options);
+
+    expect(options.matchAudio.audio.playMusic).toHaveBeenCalledWith(null);
+  });
+
+  it("plays a fighter's decoded sound the moment engine reports it triggered this tick (backlog item 013)", async () => {
+    const root = document.createElement("div");
+    const hitSound = {
+      group: 1,
+      sample: 0,
+      sampleRate: 11025,
+      channels: 1,
+      bitsPerSample: 16,
+      pcm: [0, 0],
+    };
+    const input = baseInput();
+    input.player1.character = {
+      ...character(),
+      sounds: [{ index: 1, sounds: [hitSound] }],
+    };
+    let currentTime = 0;
+    const options = baseOptions({
+      now: vi.fn(() => currentTime),
+      tick: vi.fn(async () =>
+        tickResponse({ sounds: [[{ group: 1, sample: 0 }], []] }),
+      ),
+    });
+
+    await renderMatch(root, input, options);
+    currentTime = 1000 / 60 + 1;
+    options.rafCallbacks[0](currentTime);
+
+    await vi.waitFor(() => {
+      expect(options.matchAudio.audio.playSound).toHaveBeenCalledWith(hitSound);
+    });
+  });
+
+  it("skips a triggered sound silently when no decoded sample matches its (group, sample)", async () => {
+    const root = document.createElement("div");
+    let currentTime = 0;
+    const options = baseOptions({
+      now: vi.fn(() => currentTime),
+      tick: vi.fn(async () =>
+        tickResponse({ sounds: [[{ group: 9, sample: 9 }], []] }),
+      ),
+    });
+
+    await renderMatch(root, baseInput(), options);
+    currentTime = 1000 / 60 + 1;
+    options.rafCallbacks[0](currentTime);
+    await vi.waitFor(() => {
+      expect(options.tick).toHaveBeenCalledTimes(1);
+    });
+
+    expect(options.matchAudio.audio.playSound).not.toHaveBeenCalled();
+  });
+
+  it("plays every tick's own triggered sounds across a multi-tick catch-up burst, not just the last tick's", async () => {
+    const root = document.createElement("div");
+    const hitSound = {
+      group: 1,
+      sample: 0,
+      sampleRate: 11025,
+      channels: 1,
+      bitsPerSample: 16,
+      pcm: [0, 0],
+    };
+    const input = baseInput();
+    input.player1.character = {
+      ...character(),
+      sounds: [{ index: 1, sounds: [hitSound] }],
+    };
+    let currentTime = 0;
+    const options = baseOptions({ now: vi.fn(() => currentTime) });
+    (options.tick as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(
+        tickResponse({ sounds: [[{ group: 1, sample: 0 }], []] }),
+      )
+      .mockResolvedValueOnce(tickResponse({ sounds: [[], []] }))
+      .mockResolvedValueOnce(
+        tickResponse({ sounds: [[{ group: 1, sample: 0 }], []] }),
+      );
+
+    await renderMatch(root, input, options);
+    currentTime = (1000 / 60) * 3 + 1;
+    options.rafCallbacks[0](currentTime);
+    await vi.waitFor(() => {
+      expect(options.tick).toHaveBeenCalledTimes(3);
+    });
+
+    expect(options.matchAudio.audio.playSound).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops the match audio controller when stop() is called", async () => {
+    const root = document.createElement("div");
+    const options = baseOptions();
+
+    const handle = await renderMatch(root, baseInput(), options);
+    handle.stop();
+
+    expect(options.matchAudio.audio.stop).toHaveBeenCalled();
   });
 
   it("disposes the input source when stop() is called", async () => {

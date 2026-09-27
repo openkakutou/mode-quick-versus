@@ -1,3 +1,5 @@
+import { type MatchAudio, createMatchAudio } from "../audio/match-audio.ts";
+import { buildSoundLookup, findSound } from "../audio/sound-lookup.ts";
 import { createCpuAwareInputSource } from "../cpu/cpu-input-source.ts";
 import { type Hud, createHud } from "../hud/hud-renderer.ts";
 import {
@@ -37,7 +39,7 @@ import type {
   SpriteRef,
   StageSummary,
 } from "../wasm/stage-types.ts";
-import type { CharacterSummary, Frame, Sprite } from "../wasm/types.ts";
+import type { CharacterSummary, Frame, Sound, Sprite } from "../wasm/types.ts";
 // The match scene's canvas/timer orchestration: starts a real match via
 // the `engine` WASM bridge, resolves the sprites needed to draw its
 // current state via the `character`/`stage` bridges (cached, see
@@ -90,6 +92,8 @@ export interface MatchRendererCharacterInput {
 export interface MatchRendererStageInput {
   stage: StageSummary;
   sffBytes: Uint8Array;
+  /** This stage's background music file bytes, if it declared one and it fetched successfully — `null`/`undefined` means no music plays for this match (backlog item 013). */
+  musicBytes?: Uint8Array | null;
 }
 
 export interface MatchRendererInput {
@@ -166,6 +170,8 @@ export interface MatchRendererOptions {
   ) => TickInputSource;
   /** Overrides the round/match result overlay entirely — for testing. Defaults to a real `createResultOverlay(options)`. */
   createResultOverlay?: (options: ResultOverlayOptions) => ResultOverlay;
+  /** Overrides the match audio controller entirely — bypassing the real `AudioContext`/Web Audio API wiring, same rationale as every other real-effect option here (backlog item 013). Defaults to a real `createMatchAudio()`. */
+  createAudio?: () => MatchAudio;
 }
 
 /** A previous call's stop function, per root element, so a new call on the same root cleans up its predecessor's loop before starting its own — mirrors `stage-viewer-web`'s own established convention. */
@@ -198,6 +204,7 @@ function resolveOptions(options: MatchRendererOptions) {
         onSourceChange: (playerIndex: 0 | 1, source: InputSourceKind) => void,
       ) => createTickInputSource({ onSourceChange })),
     createResultOverlay: options.createResultOverlay ?? createResultOverlay,
+    createAudio: options.createAudio ?? (() => createMatchAudio()),
   };
 }
 
@@ -284,6 +291,19 @@ export async function renderMatch(
     buildSpriteMetaByKey(characters[0]),
     buildSpriteMetaByKey(characters[1]),
   ];
+  // Computed once, not per tick: same "resolve once, reuse the lookup"
+  // convention as fighterSpriteMetaByKey above (backlog item 013).
+  const fighterSoundLookupByKey: [Map<string, Sound>, Map<string, Sound>] = [
+    buildSoundLookup(characters[0]),
+    buildSoundLookup(characters[1]),
+  ];
+
+  // Started fire-and-forget: `playMusic` never throws/rejects (see
+  // `audio/match-audio.ts`), and a stage's background music has no bearing
+  // on whether the match can start or simulate correctly, so this is never
+  // awaited before the match proceeds.
+  const audio = deps.createAudio();
+  void audio.playMusic(input.stage.musicBytes ?? null);
 
   async function resolveFighterSprites(
     animations: readonly [FighterAnimState, FighterAnimState],
@@ -508,6 +528,7 @@ export async function renderMatch(
     effectiveInputSource.dispose();
     hud.dispose();
     resultOverlay.dispose();
+    audio.stop();
     deps.closeMatch(matchId).catch(() => {
       // A failure to release the session is not user-visible — the
       // session simply stays resident for the life of the WASM instance,
@@ -545,6 +566,17 @@ export async function renderMatch(
       latestState = result.data.state;
       latestProgress = result.data.progress;
       stageElapsedTicks += 1;
+      // Played immediately, this exact tick -- never deferred to after the
+      // burst or attached only to its final iteration, since a dropped
+      // intermediate tick's own events would otherwise be lost the same
+      // way a genuinely skipped tick's events already are (backlog item
+      // 013; see `wasm/engine-types.ts`'s `SoundEvent` doc comment).
+      for (const side of [0, 1] as const) {
+        for (const event of result.data.sounds[side]) {
+          const sound = findSound(fighterSoundLookupByKey[side], event);
+          if (sound) audio.playSound(sound);
+        }
+      }
       if (result.data.round.outcome !== 0) {
         pendingRoundResult = result.data.round;
         pendingMatchOver = result.data.matchOver;

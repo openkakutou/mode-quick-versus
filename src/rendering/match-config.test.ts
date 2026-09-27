@@ -24,6 +24,7 @@ function character(
     animations: [],
     sprites: [],
     stateDefs: [],
+    sounds: [],
     ...overrides,
   };
 }
@@ -45,6 +46,7 @@ function stage(overrides: Partial<StageSummary> = {}): StageSummary {
     elements: [],
     animations: {},
     stageBoundaries: { left: 0, right: 0, topBound: 0, bottomBound: 0 },
+    musicFile: "",
     ...overrides,
   };
 }

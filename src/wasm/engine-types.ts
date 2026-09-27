@@ -66,6 +66,23 @@ export interface FighterAnimState {
   animTime: number;
 }
 
+/**
+ * One `PlaySnd` state controller execution recorded during a single
+ * simulation tick (`evaluator.SoundEvent`, backlog item 013): the
+ * `(group, sample)` pair its "value" parameter resolved to, the same
+ * reference a character's own decoded `Sound`/`SoundGroup` (see
+ * `types.ts`) is keyed by. This is the complete field set — no `channel`,
+ * `volume`, `pan`, or `loop`: `engine` only reports which sound was
+ * triggered, deciding how to actually play it is each consuming app's own
+ * job (roadmap `.vibe/decisions/026`). A discrete per-tick event log: a
+ * caller that skips a tick's `tick()` response loses that tick's events
+ * permanently, never replayed on a later call.
+ */
+export interface SoundEvent {
+  group: number;
+  sample: number;
+}
+
 /** One simulation tick's raw directional/button input for one fighter (`input.TickInput`). A field left unset reads as not held/pressed. */
 export interface TickInput {
   up?: boolean;
@@ -145,6 +162,8 @@ export interface TickResponseData {
   matchOver: boolean;
   matchWinner: Side;
   animations: [FighterAnimState, FighterAnimState];
+  /** Each fighter's own `PlaySnd` events triggered this exact tick, indexed `[P1, P2]` (backlog item 013). Always a real array per side, never `null` — `engine`'s own `tickResponse` normalizes an empty tick to `[]`. */
+  sounds: [SoundEvent[], SoundEvent[]];
 }
 
 /**
