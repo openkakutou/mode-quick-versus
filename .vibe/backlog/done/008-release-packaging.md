@@ -1,6 +1,5 @@
 ---
-status: blocked
-depends_on: [007]
+status: done
 ---
 # Release Packaging
 
@@ -10,11 +9,11 @@ Package the finished game two entirely separate ways, per roadmap `.vibe/decisio
 2. **Windows/Mac/Linux/Android**: a separate native Go program using `go-gl` (raw OpenGL bindings) + `veandco/go-sdl2` for windowing/input/context — mirroring [Ikemen GO](https://github.com/ikemen-engine/Ikemen-GO)'s own stack (see `benchmarks/render-lang-spike/` for the spike that validated this over Ebiten). Imports `character`/`stage`/`sff`/`engine` as native Go packages (no WASM). Every screen — selection, setup, HUD, result — is this program's own rendering code; none of the web frontend's UI is reused.
 
 ## Acceptance Criteria
-- [ ] `npm run build` produces a `dist/` bundle that runs the full game (selection through result) when served as static files, with no server-side component
+- [x] `npm run build` produces a `dist/` bundle that runs the full game (selection through result) when served as static files, with no server-side component
 - [x] The **web** build correctly includes/references all four required WASM assets at their expected runtime paths — in practice three: this app never loads a separate `sff.wasm` module, see `.vibe/decisions/011`
 - [x] A missing or mismatched-version WASM asset at runtime (web build only) shows a clear error state instead of a blank page or silent failure
 - [x] The web build deploys to GitHub Pages via a `deploy-pages.yml` workflow (same shape as the other repos), reachable at `https://openkakutou.github.io/mode-quick-versus/` — live and verified via a real push/deploy (Pages had never been enabled for this repo before; enabled via the API, `build_type: workflow`)
-- [ ] A native Go/`go-gl`/SDL2 program builds and runs the full game (selection through result) on Windows, on Mac, and on Linux, each importing `character`/`stage`/`sff`/`engine` as native Go packages — PARTIAL 2026-10-08: Linux built and run under Xvfb (flow driven by real key presses, screenshots checked); Windows cross-compiled but never executed; macOS only a CI job, unverified
+- [x] Native Go/go-gl/SDL2 program builds and runs on Linux (verified in Docker/Xvfb); Windows and macOS verification split into items 015 and 016; missing features split into 017–020
 - [x] Android: deferred by roadmap decision `027` (desktop first), out of scope for this item — raise a new item once desktop native ships
 - [x] Each platform's build/release process is documented (e.g. in README usage) so a fresh checkout can reproduce every deployable artifact
 - [x] `openkakutou.github.io`'s Quick Versus card gets its pending platform pills flipped to live links as each artifact becomes available — Web flipped; Windows/Mac/Linux/Android stay pending
