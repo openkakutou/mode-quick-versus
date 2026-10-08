@@ -1,7 +1,9 @@
 ---
-status: idle
-started: 2026-09-27T05:00
-limit: 1
+status: running
+started: 2026-10-08T12:00
+limit: 2
+current: 008
+attempt: 1
 ---
 # Auto run journal
 
@@ -34,3 +36,6 @@ limit: 1
 
 ## 2026-09-27T05:00 — run started (limit: 1, via /vibe:next-task auto 1)
 - 013 — feature — blocked: web audio (music + PlaySnd effects) shipped (ca7085e); native SDL2_mixer half unimplementable in this environment (no native app yet, no SDL2/display toolchain, see .vibe/decisions/013)
+
+## 2026-10-08T12:00 — run started (limit: 2)
+- 008 — feature — in progress
