@@ -1,9 +1,7 @@
 ---
-status: running
+status: idle
 started: 2026-10-08T12:00
 limit: 2
-current: 008
-attempt: 1
 ---
 # Auto run journal
 
@@ -38,4 +36,4 @@ attempt: 1
 - 013 — feature — blocked: web audio (music + PlaySnd effects) shipped (ca7085e); native SDL2_mixer half unimplementable in this environment (no native app yet, no SDL2/display toolchain, see .vibe/decisions/013)
 
 ## 2026-10-08T12:00 — run started (limit: 2)
-- 008 — feature — in progress
+- 008 — feature — blocked: native Linux shipped and verified in Docker/Xvfb (f73da28); Windows .exe cross-compiled but never run (Go crashes under Wine), macOS CI job never run, native game has no audio/CPU opponent/gamepad/stage layers
