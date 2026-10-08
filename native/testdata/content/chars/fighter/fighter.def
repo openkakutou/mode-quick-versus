@@ -1,0 +1,9 @@
+[Info]
+name = "fighter"
+author = "fixture"
+
+[Files]
+cmd = fighter.cmd
+cns = fighter.cns
+sprite = fighter.sff
+anim = fighter.air

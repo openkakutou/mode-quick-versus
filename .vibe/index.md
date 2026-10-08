@@ -17,6 +17,7 @@
 - [`modules/cpu.md`](modules/cpu.md) — the minimal, first-pass CPU opponent for player 2: stateless decision logic (walk toward the opponent, occasionally attack in range) composed with the existing input-source abstraction rather than bypassing it
 - [`modules/i18n.md`](modules/i18n.md) — this app's own localization setup: the shared `web-ui-kit` i18next integration layer wired under this app's namespace, plus a `t()` wrapper every screen calls to render its own text
 - [`modules/scripts.md`](modules/scripts.md) — dev-tooling scripts: downloading a WASM dependency's release build (`character`, `stage`, or `engine` target), and preparing the visual regression suite's own fixture WASM copy
+- `native/` (Go, separate module) — the native desktop game: `internal/game` (cgo-free roster discovery, match assembly over `engine`, screen-flow state machine; unit-tested), `internal/gfx` (go-gl + SDL2 renderer, bitmap font, keyboard input), `cmd/quickversus`; built/tested in `native/Dockerfile` via `native/scripts/*.sh`; see `.vibe/decisions/014` and `docs/deployment.md`
 
 ## Observed patterns
 - TypeScript with `strict`, `noUnusedLocals`, `noUnusedParameters` enabled (`tsconfig.json`)

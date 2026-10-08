@@ -52,6 +52,8 @@ mode-quick-versus/
 └── biome.json         # lint/format config
 ```
 
+Native target: `native/` is a separate Go module (own `go.mod`); build and test it only through `native/scripts/*.sh` (Docker). See `docs/deployment.md`.
+
 Planned, as features land (not yet present):
 - `src/wasm/` — bridges to the `character`, `stage`, `sff`, and `engine` WASM modules
 - `src/selection/` — character roster discovery/selection and stage selection screens

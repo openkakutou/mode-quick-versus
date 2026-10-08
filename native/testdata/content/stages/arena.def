@@ -1,0 +1,42 @@
+[Info]
+name = Training Room
+
+[BGDef]
+spr = stage0.sff
+
+[StageInfo]
+localcoord = 320,240
+zoffset = 220
+
+[Camera]
+boundleft = -180
+boundright = 180
+boundhigh = -240
+boundlow = 0
+zoomout = 0.75
+zoomin = 1.5
+
+[PlayerInfo]
+leftbound = -160
+rightbound = 160
+
+[BG sky]
+type = normal
+spriteno = 0,0
+layerno = 0
+start = 0,0
+
+[BG cloud]
+type = parallax
+spriteno = 1,0
+delta = 0.5,0.8
+start = 10,20
+
+[BG torch]
+type = anim
+actionno = 200
+start = 50,30
+
+[Begin Action 200]
+0,0, 0,0, 10
+0,1, 0,0, 5

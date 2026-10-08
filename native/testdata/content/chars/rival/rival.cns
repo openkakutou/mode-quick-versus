@@ -1,0 +1,38 @@
+; Fighter fixture for the round/match-flow integration test (backlog item
+; 009): a small but real state loop -- idle, an attack with a HitDef, and
+; the return to idle -- styled after real MUGEN/Ikemen idioms the same way
+; this repo's own kfm_idle.cns/kfm_idle.zss testdata already are (see
+; statemachine/testdata, zssexec/testdata), not a literal downloaded file.
+; Both fighters in the integration test load this same file (a supported
+; mirror match, per mode-quick-versus's own glossary) -- only P1's input
+; ever holds the attack button, so P2 never leaves Standing.
+
+[Statedef 0, Standing]
+type            = S
+movetype        = I
+physics         = S
+anim            = 0
+ctrl            = 1
+
+[State 0, GoToAttack]
+type = ChangeState
+trigger1 = Command = "atk"
+value = 200
+
+[Statedef 200, Attack]
+type            = S
+movetype        = A
+physics         = S
+anim            = 200
+ctrl            = 0
+
+[State 200, Hit]
+type = HitDef
+trigger1 = Time = 0
+attr = S, NA
+damage = 15
+
+[State 200, BackToStanding]
+type = ChangeState
+trigger1 = Time >= 5
+value = 0

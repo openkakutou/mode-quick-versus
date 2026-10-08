@@ -1,0 +1,66 @@
+name: Native
+
+on:
+  push:
+    branches: [main]
+    paths: ['native/**', '.github/workflows/native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/native.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Linux build + unit tests + a real run under Xvfb, and the Windows
+  # cross-compile, all inside the repo's own toolchain image (native/Dockerfile),
+  # the same one used locally, so CI and a fresh checkout cannot diverge.
+  linux-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Unit tests and vet
+        run: native/scripts/test.sh
+      - name: Run under Xvfb (screenshots must not be blank)
+        run: native/scripts/smoke.sh
+      - name: Cross-compile for Windows
+        run: native/scripts/build.sh windows
+      - name: Upload artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quickversus-native-linux-windows
+          path: |
+            native/dist/quickversus-linux-amd64
+            native/dist/quickversus-windows-amd64.exe
+            native/dist/SDL2.dll
+            native/dist/smoke/*.png
+
+  # UNVERIFIED LOCALLY: macOS cannot be built or run from Linux/Docker, so
+  # this job has never been executed by the author -- its first real run on
+  # GitHub is the first verification. It mirrors the Linux steps with
+  # Homebrew's SDL2 instead of the container.
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+          cache-dependency-path: native/go.sum
+      - name: Install SDL2
+        run: brew install sdl2 pkg-config
+      - name: Vet and test
+        working-directory: native
+        run: go vet ./... && go test ./...
+      - name: Build
+        working-directory: native
+        run: go build -o dist/quickversus-macos ./cmd/quickversus
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quickversus-native-macos
+          path: native/dist/quickversus-macos

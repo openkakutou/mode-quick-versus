@@ -1,5 +1,5 @@
 ---
-status: todo
+status: blocked
 depends_on: [007]
 ---
 # Release Packaging
@@ -14,9 +14,9 @@ Package the finished game two entirely separate ways, per roadmap `.vibe/decisio
 - [x] The **web** build correctly includes/references all four required WASM assets at their expected runtime paths — in practice three: this app never loads a separate `sff.wasm` module, see `.vibe/decisions/011`
 - [x] A missing or mismatched-version WASM asset at runtime (web build only) shows a clear error state instead of a blank page or silent failure
 - [x] The web build deploys to GitHub Pages via a `deploy-pages.yml` workflow (same shape as the other repos), reachable at `https://openkakutou.github.io/mode-quick-versus/` — live and verified via a real push/deploy (Pages had never been enabled for this repo before; enabled via the API, `build_type: workflow`)
-- [ ] A native Go/`go-gl`/SDL2 program builds and runs the full game (selection through result) on Windows, on Mac, and on Linux, each importing `character`/`stage`/`sff`/`engine` as native Go packages
+- [ ] A native Go/`go-gl`/SDL2 program builds and runs the full game (selection through result) on Windows, on Mac, and on Linux, each importing `character`/`stage`/`sff`/`engine` as native Go packages — PARTIAL 2026-10-08: Linux built and run under Xvfb (flow driven by real key presses, screenshots checked); Windows cross-compiled but never executed; macOS only a CI job, unverified
 - [x] Android: deferred by roadmap decision `027` (desktop first), out of scope for this item — raise a new item once desktop native ships
-- [ ] Each platform's build/release process is documented (e.g. in README usage) so a fresh checkout can reproduce every deployable artifact
+- [x] Each platform's build/release process is documented (e.g. in README usage) so a fresh checkout can reproduce every deployable artifact
 - [x] `openkakutou.github.io`'s Quick Versus card gets its pending platform pills flipped to live links as each artifact becomes available — Web flipped; Windows/Mac/Linux/Android stay pending
 
 ## Notes
@@ -29,3 +29,6 @@ Packaging strategy history: Tauri (`.vibe/decisions/020`) → Wails (`.vibe/deci
 
 ## Unblock note (2026-10-08)
 Native toolchain is now available through Docker (the host has Docker): build and test inside a Linux container with SDL2 dev headers + pkg-config, and Xvfb as the display server for runtime checks; cross-compile Windows with mingw-w64 in the container. macOS can't be built or run from Linux Docker — cover it via a GitHub Actions `macos` runner job, and state plainly that it is unverified locally. Scripts/Dockerfile must live in the repo so a fresh checkout reproduces the build.
+
+## Blocked
+2026-10-08: Native Linux shipped (Docker toolchain, tests, Xvfb run). Remaining: Windows binary never executed (Go cannot start under Wine in the container), macOS job never run (needs a first GitHub Actions run), and the native game has no audio/CPU/gamepad/stage layers. See `.vibe/decisions/014`.

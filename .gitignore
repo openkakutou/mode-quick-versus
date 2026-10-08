@@ -12,3 +12,7 @@ public/wasm/
 # holds Playwright's own failure diff/trace output.
 tests/visual/fixtures/wasm/
 test-results/
+
+# Native build (native/): Go module/build caches and binaries
+native/.cache/
+native/dist/

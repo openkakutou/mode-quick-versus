@@ -1,0 +1,12 @@
+; Animation fixture pairing fighter.cns -- see that file's own header
+; comment for the convention this follows.
+
+[Begin Action 0] ;standing
+Clsn2Default: 1
+ Clsn2[0] = -8,-90,8,0
+0,0, 0,0, -1
+
+[Begin Action 200] ;attack
+Clsn1Default: 1
+ Clsn1[0] = -8,-90,8,0
+0,0, 0,0, 100

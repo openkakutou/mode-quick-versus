@@ -17,13 +17,26 @@ The live app is reachable at `https://openkakutou.github.io/mode-quick-versus/` 
 
 A missing or version-mismatched WASM asset at runtime (the pipeline's own download step used the wrong tag, or a CDN/cache served a stale file) no longer produces a blank page: the affected screen shows a clear, visible error message instead (see `docs/architecture.md`'s "never throw" bridge note).
 
-## Native: Windows / Mac / Linux / Android
+## Native: Windows / Mac / Linux
 
-Not yet available. The plan (this repo's `CLAUDE.md`, roadmap `.vibe/decisions/022`) is a second, independent Go program using `go-gl` + `veandco/go-sdl2` — no WASM, no webview, every screen (selection, setup, HUD, result) drawn by its own code, importing `character`/`stage`/`sff`/`engine` as native Go packages.
+A second, independent Go program in `native/` (`go-gl` + `veandco/go-sdl2`, no WASM, no webview) importing `character`/`stage`/`sff`/`engine` as native Go packages. Android is out of scope (roadmap decision `027`).
 
-Two separate gaps block it, tracked independently:
+Everything native is built and tested inside a Docker image (`native/Dockerfile`: Go, SDL2 headers, `pkg-config`, Xvfb, mingw-w64 plus the SDL2 mingw development files), so a fresh checkout needs only Docker:
 
-- **Android specifically**: an open desktop-OpenGL-vs-OpenGL-ES product decision, tracked as roadmap backlog `010`. Not resolved by adopting SDL2 alone.
-- **Windows/Mac/Linux as a whole, in the environment this item was implemented in**: no SDL2 development headers or `pkg-config` (both required by `go-gl`'s and `go-sdl2`'s `cgo` build) with no way to install them, no display server to run/verify a built binary at all, and no Windows/Mac cross-compilation toolchain — with no way to run a cross-compiled Windows or Mac binary from a Linux machine regardless. See this repo's `.vibe/decisions/011-release-packaging-web-only-this-cycle.md` for the full reasoning and what was ruled out (hand-extracting package files without a real toolchain was considered and rejected as unverifiable). This is an environment gap, not a design decision — the native program itself has not been started.
+```bash
+native/scripts/test.sh              # gofmt check, go vet, unit tests
+native/scripts/build.sh linux       # -> native/dist/quickversus-linux-amd64
+native/scripts/build.sh windows     # -> native/dist/quickversus-windows-amd64.exe + SDL2.dll (keep them together)
+native/scripts/smoke.sh             # runs the Linux build under Xvfb, drives it with real key presses
+                                    #   (select -> stage -> setup -> match), screenshots to native/dist/smoke/
+```
 
-A future attempt needs, at minimum: a machine or CI runner with `libsdl2-dev`, `pkg-config`, and a display (or a properly provisioned headless GL setup) for the Linux leg; a Windows and a Mac machine (or equivalent CI runners) to build and actually run the other two legs; and the Android decision (backlog `010`) resolved before that fourth leg is attempted.
+Running it: `quickversus -content <dir>` where `<dir>` holds `chars/<name>/<name>.def` (one folder per character) and `stages/*.def`. A tiny fixture lives in `native/testdata/content`. Controls match the web build: P1 WASD + F/G/H/R/T/Y, P2 arrows + J/K/L/I/O/P; menus use arrows/WASD, Enter, Esc. `-frames N -capture out.png` renders N frames, saves a screenshot and exits.
+
+**macOS** cannot be built from Linux/Docker. `.github/workflows/native.yml` has a `macos` job (Homebrew SDL2, `go vet`, `go test`, `go build`) that is **unverified**: it has never been run by the author. Its first real run on GitHub is the first verification.
+
+**Windows** is cross-compiled in the container and produces a valid PE32+ executable, but it has **not been executed** anywhere: Go binaries do not start under Wine in the container, and no Windows machine was available.
+
+**Dependency note:** `engine` tags are `v2.x` without a `/v2` module path, so Go cannot resolve them by tag; `native/go.mod` pins the tagged commit's pseudo-version instead (see `.vibe/decisions/014`).
+
+**Known gaps in the native build:** no audio, no CPU opponent, no gamepad, stage backgrounds drawn as flat colors (stage sprite layers not rendered), and only character sprites are textured.

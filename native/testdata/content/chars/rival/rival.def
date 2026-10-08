@@ -1,0 +1,9 @@
+[Info]
+name = "rival"
+author = "fixture"
+
+[Files]
+cmd = rival.cmd
+cns = rival.cns
+sprite = rival.sff
+anim = rival.air
