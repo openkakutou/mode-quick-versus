@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Moved to the redesigned shared look (web-ui-kit 0.17, "Studio": dark by default, new colour tokens, 14 px text and 34 px controls).
+
 ### Added
 
 - Native desktop game for Linux and Windows (a Mac build is set up in CI but not yet verified): a standalone program with its own character selection, stage selection, match setup (rounds and time limit), live match with lifebars, power bars, round wins and timer, and a result screen with rematch. Two players share one keyboard with the same keys as the web version. Characters and stages are read from a folder given on the command line. No sound, CPU opponent, gamepad support or stage background art yet.
