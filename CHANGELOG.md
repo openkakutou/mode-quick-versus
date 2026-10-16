@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Native desktop game for Linux and Windows (a Mac build is set up in CI but not yet verified): a standalone program with its own character selection, stage selection, match setup (rounds and time limit), live match with lifebars, power bars, round wins and timer, and a result screen with rematch. Two players share one keyboard with the same keys as the web version. Characters and stages are read from a folder given on the command line. No sound, CPU opponent, gamepad support or stage background art yet.
+- Native desktop game for Linux and Windows (a Mac build is set up in CI but not yet verified): a standalone program with its own character selection, stage selection, match setup (rounds and time limit), live match with lifebars, power bars, round wins and timer, and a result screen with rematch. Two players share one keyboard with the same keys as the web version. Characters and stages are read from a folder given on the command line. No sound, gamepad support or stage background art yet.
+- Native desktop game: a new "Player 2" choice on the match setup screen (Human or CPU, Human by default) lets you play against a computer opponent that walks toward you and attacks now and then, same as the web version. A rematch keeps the choice.
 
 ## [0.12.0] - 2026-09-27
 

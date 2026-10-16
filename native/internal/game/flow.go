@@ -44,6 +44,15 @@ var (
 // round starts (or the result screen appears): 2 seconds.
 const RoundEndTicks = 2 * TickRateHz
 
+// Rows of the setup screen.
+const (
+	SetupRowRounds = iota
+	SetupRowTime
+	SetupRowPlayer2
+	SetupRowStart
+	setupRowCount
+)
+
 // Loader loads content from disk; replaceable so flow logic is testable.
 type Loader struct {
 	Fighter func(defPath string) (*Fighter, error)
@@ -66,11 +75,14 @@ type Flow struct {
 	StageNo int
 
 	RoundIdx, TimeIdx int
-	SetupRow          int // 0 = rounds, 1 = time limit, 2 = start
+	SetupRow          int // a SetupRow* constant
+	Player2CPU        bool
 
 	Fighters [2]*Fighter
 	Stage    *stage.Stage
 	Match    *Match
+	cpu      *CPU // drives player 2 during a match when Player2CPU is set
+	cpuIn    input.TickInput
 	// RoundOverTicks counts down while a finished round is shown.
 	RoundOverTicks int
 	// ResultWinner is the match winner shown on the result screen.
@@ -100,7 +112,7 @@ func (f *Flow) fail(msg string) {
 
 // Setup returns the currently chosen match setup.
 func (f *Flow) Setup() Setup {
-	return Setup{Rounds: RoundOptions[f.RoundIdx], TimeLimitSeconds: TimeOptions[f.TimeIdx]}
+	return Setup{Rounds: RoundOptions[f.RoundIdx], TimeLimitSeconds: TimeOptions[f.TimeIdx], Player2CPU: f.Player2CPU}
 }
 
 func wrap(i, delta, n int) int { return ((i+delta)%n + n) % n }
@@ -157,7 +169,7 @@ func (f *Flow) navStage(n Nav) {
 	case NavDown, NavRight:
 		f.Cursor = wrap(f.Cursor, 1, len(f.Stages))
 	case NavConfirm:
-		f.StageNo, f.Screen, f.SetupRow = f.Cursor, ScreenSetup, 2
+		f.StageNo, f.Screen, f.SetupRow = f.Cursor, ScreenSetup, SetupRowStart
 	case NavCancel:
 		f.Screen, f.Picking, f.Cursor = ScreenSelect, 1, f.Picks[1]
 	}
@@ -166,25 +178,27 @@ func (f *Flow) navStage(n Nav) {
 func (f *Flow) navSetup(n Nav) {
 	switch n {
 	case NavUp:
-		f.SetupRow = wrap(f.SetupRow, -1, 3)
+		f.SetupRow = wrap(f.SetupRow, -1, setupRowCount)
 	case NavDown:
-		f.SetupRow = wrap(f.SetupRow, 1, 3)
+		f.SetupRow = wrap(f.SetupRow, 1, setupRowCount)
 	case NavLeft, NavRight:
 		d := 1
 		if n == NavLeft {
 			d = -1
 		}
 		switch f.SetupRow {
-		case 0:
+		case SetupRowRounds:
 			f.RoundIdx = wrap(f.RoundIdx, d, len(RoundOptions))
-		case 1:
+		case SetupRowTime:
 			f.TimeIdx = wrap(f.TimeIdx, d, len(TimeOptions))
+		case SetupRowPlayer2:
+			f.Player2CPU = !f.Player2CPU
 		}
 	case NavConfirm:
-		if f.SetupRow == 2 {
+		if f.SetupRow == SetupRowStart {
 			f.startMatch()
 		} else {
-			f.SetupRow = wrap(f.SetupRow, 1, 3)
+			f.SetupRow = wrap(f.SetupRow, 1, setupRowCount)
 		}
 	case NavCancel:
 		f.Screen, f.Cursor = ScreenStage, f.StageNo
@@ -229,6 +243,10 @@ func (f *Flow) startMatch() {
 		return
 	}
 	f.Match, f.Screen, f.RoundOverTicks = m, ScreenMatch, 0
+	f.cpu = nil
+	if f.Player2CPU {
+		f.cpu = NewCPU(nil)
+	}
 }
 
 // Tick advances the match screen by one simulation tick (60 per second) with
@@ -250,6 +268,10 @@ func (f *Flow) Tick(in [2]input.TickInput) {
 			f.fail(err.Error())
 		}
 		return
+	}
+	if f.cpu != nil {
+		f.cpu.Decide(f.Match.State.Fighters[match.SideP2].Position, f.Match.State.Fighters[match.SideP1].Position, &f.cpuIn)
+		in[match.SideP2] = f.cpuIn
 	}
 	if err := f.Match.Step(in); err != nil {
 		f.fail(fmt.Sprintf("The match stopped: %v", err))

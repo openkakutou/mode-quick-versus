@@ -23,6 +23,18 @@ xdotool keydown f; sleep 1; xdotool keyup f; shot 6-match-attack
 kill -0 $pid                     # still running = no crash
 kill $pid; wait $pid 2>/dev/null || true
 
+# 1b. Player 2 set to CPU on the setup screen: the CPU must walk on its own.
+./dist/quickversus-linux-amd64 -content testdata/content -width 960 -height 720 &
+pid=$!
+sleep 2
+key Return; key Right Return; key Return   # P1, P2, stage
+key Up Right; shot 9-setup-cpu             # Player 2 row -> CPU
+key Down Return                            # Start
+sleep 3; shot 10-match-cpu
+kill -0 $pid
+kill $pid; wait $pid 2>/dev/null || true
+cmp -s "$out/5-match.png" "$out/10-match-cpu.png" && { echo "CPU did not move"; exit 1; }
+
 # 2. Deterministic in-program capture and error screen.
 ./dist/quickversus-linux-amd64 -content testdata/content -frames 5 -capture "$out/7-capture.png"
 ./dist/quickversus-linux-amd64 -content /nonexistent -frames 5 -capture "$out/8-error.png"

@@ -3,3 +3,4 @@
 **Files:** `src/cpu/cpu-controller.ts`, `src/cpu/cpu-input-source.ts`
 **Exports:** `CpuObservation`, `CpuController`, `APPROACH_DISTANCE`, `ATTACK_RANGE`, `ATTACK_CHANCE`, `createCpuController(random?): CpuController`, `CreateCpuAwareInputSourceOptions`, `createCpuAwareInputSource(options): TickInputSource`
 **Depends on:** `modules/input.md` (`TickInputSource`, `TickInputPair`, `RawPlayerInput`, `BUTTON_NAMES`)
+**Native counterpart:** `native/internal/game/cpu.go` ports the same decision rule (same distance/chance constants) for the native game; `Flow` overrides player 2's input with it when the setup's Player 2 row is CPU.

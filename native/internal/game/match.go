@@ -73,6 +73,8 @@ func LoadStage(defPath string) (*stage.Stage, error) {
 type Setup struct {
 	Rounds           int
 	TimeLimitSeconds int
+	// Player2CPU makes the CPU opponent drive player 2 instead of the keyboard.
+	Player2CPU bool
 }
 
 // Validate rejects a setup the engine cannot play (rounds must be odd, >0).

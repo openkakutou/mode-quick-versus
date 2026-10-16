@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 depends_on: [008]
 ---
 # Native game: CPU opponent

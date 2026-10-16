@@ -122,7 +122,11 @@ func (r *Renderer) drawSetup(f *game.Flow) {
 	if s.TimeLimitSeconds > 0 {
 		time = fmt.Sprintf("%d seconds", s.TimeLimitSeconds)
 	}
-	rows := []string{fmt.Sprintf("Rounds   < best of %d >", s.Rounds), "Time     < " + time + " >", "Start match"}
+	p2 := "Human"
+	if s.Player2CPU {
+		p2 = "CPU"
+	}
+	rows := []string{fmt.Sprintf("Rounds   < best of %d >", s.Rounds), "Time     < " + time + " >", "Player 2 < " + p2 + " >", "Start match"}
 	for i, text := range rows {
 		y := float32(80 + i*24)
 		col := grey

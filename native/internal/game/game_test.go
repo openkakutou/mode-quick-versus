@@ -67,7 +67,7 @@ func TestSetupValidate(t *testing.T) {
 	for _, tc := range []struct {
 		s  Setup
 		ok bool
-	}{{Setup{3, 60}, true}, {Setup{1, 0}, true}, {Setup{2, 60}, false}, {Setup{0, 60}, false}, {Setup{3, -1}, false}} {
+	}{{Setup{Rounds: 3, TimeLimitSeconds: 60}, true}, {Setup{Rounds: 1}, true}, {Setup{Rounds: 2, TimeLimitSeconds: 60}, false}, {Setup{TimeLimitSeconds: 60}, false}, {Setup{Rounds: 3, TimeLimitSeconds: -1}, false}} {
 		if err := tc.s.Validate(); (err == nil) != tc.ok {
 			t.Errorf("%+v: err=%v, want ok=%v", tc.s, err, tc.ok)
 		}
@@ -75,10 +75,10 @@ func TestSetupValidate(t *testing.T) {
 }
 
 func TestRoundTimerTicks(t *testing.T) {
-	if got := (Setup{3, 99}).RoundTimerTicks(); got != 5940 {
+	if got := (Setup{Rounds: 3, TimeLimitSeconds: 99}).RoundTimerTicks(); got != 5940 {
 		t.Errorf("99s = %d ticks, want 5940", got)
 	}
-	if got := (Setup{3, 0}).RoundTimerTicks(); got != UnlimitedTimer {
+	if got := (Setup{Rounds: 3}).RoundTimerTicks(); got != UnlimitedTimer {
 		t.Errorf("unlimited = %d, want %d", got, UnlimitedTimer)
 	}
 }
@@ -231,13 +231,14 @@ func TestFlow_FullPathSelectionToResultAndRematch(t *testing.T) {
 	if f.Screen != ScreenSetup {
 		t.Fatalf("screen = %v, want setup", f.Screen)
 	}
+	f.Navigate(NavUp) // player 2 row
 	f.Navigate(NavUp) // time row
 	f.Navigate(NavUp) // rounds row
 	f.Navigate(NavLeft)
 	if got := f.Setup(); got.Rounds != 1 {
 		t.Fatalf("setup = %+v, want 1 round", got)
 	}
-	f.SetupRow = 2
+	f.SetupRow = SetupRowStart
 	f.Navigate(NavConfirm)
 	if f.Screen != ScreenMatch || f.Match == nil {
 		t.Fatalf("screen=%v msg=%q", f.Screen, f.Message)
@@ -306,7 +307,7 @@ func TestFlow_UnloadableCharacterShowsErrorNamingIt(t *testing.T) {
 	f.Navigate(NavConfirm)
 	f.Navigate(NavConfirm)
 	f.Navigate(NavConfirm)
-	f.SetupRow = 2
+	f.SetupRow = SetupRowStart
 	f.Navigate(NavConfirm)
 	if f.Screen != ScreenError || !contains(f.Message, "ghost") {
 		t.Errorf("screen=%v message=%q", f.Screen, f.Message)
@@ -328,4 +329,83 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestFlow_SetupHasPlayer2ControlRowDefaultingToHuman(t *testing.T) {
+	f := newTestFlow(t)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	if f.Screen != ScreenSetup || f.Setup().Player2CPU {
+		t.Fatalf("screen=%v setup=%+v, want setup with a human player 2", f.Screen, f.Setup())
+	}
+	if f.SetupRow != SetupRowStart {
+		t.Fatalf("cursor starts on row %d, want Start (%d)", f.SetupRow, SetupRowStart)
+	}
+	f.Navigate(NavUp) // player 2 control row
+	f.Navigate(NavRight)
+	if !f.Setup().Player2CPU {
+		t.Error("Right on the Player 2 row should switch to CPU")
+	}
+	f.Navigate(NavLeft)
+	if f.Setup().Player2CPU {
+		t.Error("Left should switch back to Human")
+	}
+}
+
+func TestFlow_CPUDrivesPlayer2IgnoringItsKeysAndSurvivesRematch(t *testing.T) {
+	f := newTestFlow(t)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavRight)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.RoundIdx = 0
+	f.SetupRow = SetupRowPlayer2
+	f.Navigate(NavRight)
+	f.SetupRow = SetupRowStart
+	f.Navigate(NavConfirm)
+	if f.Screen != ScreenMatch || f.Match == nil {
+		t.Fatalf("screen=%v msg=%q", f.Screen, f.Message)
+	}
+	f.Match, _ = NewMatch(f.Fighters[0], f.Fighters[1], closeStage(), f.Setup())
+	heldB := input.TickInput{Buttons: map[string]bool{"b": true}}
+	for i := 0; i < 5000 && f.Screen == ScreenMatch; i++ {
+		f.Tick([2]input.TickInput{holdA(), heldB})
+	}
+	if f.Screen != ScreenResult {
+		t.Fatalf("screen=%v, match against the CPU never finished", f.Screen)
+	}
+	if f.cpu == nil {
+		t.Fatal("CPU controller missing during a CPU match")
+	}
+	f.Navigate(NavConfirm) // rematch keeps the choice
+	if f.Screen != ScreenMatch || !f.Setup().Player2CPU || f.cpu == nil {
+		t.Error("rematch must keep the CPU opponent")
+	}
+}
+
+func TestFlow_HumanMatchLeavesPlayer2InputUntouched(t *testing.T) {
+	f := newTestFlow(t)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	if f.Screen != ScreenMatch || f.cpu != nil {
+		t.Fatalf("screen=%v cpu=%v, want a human-vs-human match", f.Screen, f.cpu)
+	}
+}
+
+func TestFlow_CPUDecisionReplacesPlayer2Keys(t *testing.T) {
+	f := newTestFlow(t)
+	f.Player2CPU = true
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Navigate(NavConfirm)
+	f.Match, _ = NewMatch(f.Fighters[0], f.Fighters[1], closeStage(), f.Setup())
+	f.cpu = NewCPU(func() float64 { return 0 }) // always attacks in range
+	f.Tick([2]input.TickInput{{}, {Buttons: map[string]bool{"b": true}, Up: true}})
+	if !f.cpuIn.Buttons["a"] || f.cpuIn.Buttons["b"] || f.cpuIn.Up {
+		t.Errorf("CPU input = %+v, want attack only (human keys ignored)", f.cpuIn)
+	}
 }

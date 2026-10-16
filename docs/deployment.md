@@ -39,4 +39,4 @@ Running it: `quickversus -content <dir>` where `<dir>` holds `chars/<name>/<name
 
 **Dependency note:** `engine` tags are `v2.x` without a `/v2` module path, so Go cannot resolve them by tag; `native/go.mod` pins the tagged commit's pseudo-version instead (see `.vibe/decisions/014`).
 
-**Known gaps in the native build:** no audio, no CPU opponent, no gamepad, stage backgrounds drawn as flat colors (stage sprite layers not rendered), and only character sprites are textured.
+**Known gaps in the native build:** no audio, no gamepad, stage backgrounds drawn as flat colors (stage sprite layers not rendered), and only character sprites are textured.
