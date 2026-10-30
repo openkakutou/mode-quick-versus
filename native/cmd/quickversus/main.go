@@ -45,14 +45,16 @@ func run() error {
 	fmt.Println("renderer:", win.Renderer())
 	renderer := gfx.NewRenderer(win)
 
+	pads := gfx.NewGamepads()
+	defer pads.Close()
 	var held [2]input.TickInput
 	var acc float64
 	last := time.Now()
-	for n := 0; !flow.Quit && gfx.PollEvents(flow); n++ {
+	for n := 0; !flow.Quit && gfx.PollEvents(flow, pads); n++ {
 		now := time.Now()
 		ticks := gfx.Ticks(&acc, float64(now.Sub(last).Microseconds())/1000)
 		last = now
-		gfx.Held(&held)
+		gfx.Held(&held, pads)
 		for i := 0; i < ticks; i++ {
 			flow.Tick(held)
 		}

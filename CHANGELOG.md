@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In the native game, a connected gamepad now drives the menus and the match: the first pad is player 1, the second player 2, and a player without a pad keeps the keyboard, also after an unplug.
+
 ## [0.13.0] - 2026-10-16
 
 ### Changed

@@ -111,7 +111,7 @@ func (r *Renderer) drawList(f *game.Flow, title, sub string, items []string, cur
 			w.Text(90, y, 1, grey, items[i])
 		}
 	}
-	w.TextCentered(222, 1, grey, "Arrows move  Enter confirm  Esc back")
+	w.TextCentered(222, 1, grey, "Arrows/pad move  Enter/A confirm  Esc/B back")
 }
 
 func (r *Renderer) drawSetup(f *game.Flow) {

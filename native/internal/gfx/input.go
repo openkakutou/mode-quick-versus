@@ -20,11 +20,16 @@ var playerKeys = [2]struct {
 		"x": sdl.SCANCODE_I, "y": sdl.SCANCODE_O, "z": sdl.SCANCODE_P}},
 }
 
-// Held reads both players' currently held keys into dst, reusing the button
-// maps already in dst so a tick allocates nothing.
-func Held(dst *[2]input.TickInput) {
+// Held reads both players' held inputs into dst, reusing the button maps
+// already in dst so a tick allocates nothing. A player with a controller uses
+// it instead of the keyboard.
+func Held(dst *[2]input.TickInput, pads *Gamepads) {
 	keys := sdl.GetKeyboardState()
 	for i := range dst {
+		if s, ok := pads.state(i); ok {
+			s.Apply(&dst[i])
+			continue
+		}
 		p, in := playerKeys[i], &dst[i]
 		in.Up, in.Down = keys[p.up] != 0, keys[p.down] != 0
 		in.Left, in.Right = keys[p.left] != 0, keys[p.right] != 0
@@ -37,9 +42,9 @@ func Held(dst *[2]input.TickInput) {
 	}
 }
 
-// PollEvents drains SDL events, turning key presses into menu inputs for f.
-// It reports false when the window was closed.
-func PollEvents(f *game.Flow) bool {
+// PollEvents drains SDL events, turning key presses and controller changes
+// into menu inputs for f. It reports false when the window was closed.
+func PollEvents(f *game.Flow, pads *Gamepads) bool {
 	for ev := sdl.PollEvent(); ev != nil; ev = sdl.PollEvent() {
 		switch e := ev.(type) {
 		case *sdl.QuitEvent:
@@ -51,8 +56,16 @@ func PollEvents(f *game.Flow) bool {
 			if n, ok := navFor(e.Keysym.Scancode); ok {
 				f.Navigate(n)
 			}
+		case *sdl.ControllerDeviceEvent:
+			switch e.Type {
+			case sdl.CONTROLLERDEVICEADDED:
+				pads.add(int(e.Which))
+			case sdl.CONTROLLERDEVICEREMOVED:
+				pads.remove(e.Which)
+			}
 		}
 	}
+	pads.navigate(f)
 	return true
 }
 
