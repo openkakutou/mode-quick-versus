@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-30
+
 ### Added
 
 - In the native game, the stage's music now plays during a match, looping across rounds and on the result screen, and fighters' sound effects play when they trigger, like the web version. If there is no sound device or a sound file cannot be read, the game stays silent and keeps running.
@@ -106,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.12.0...v0.13.0
