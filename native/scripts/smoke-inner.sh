@@ -8,7 +8,7 @@ export DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1
 sleep 1
 
 # 1. Whole flow, driven by real key events.
-./dist/quickversus-linux-amd64 -content testdata/content -width 960 -height 720 &
+./dist/quickversus-linux-amd64 -content testdata/content -width 960 -height 720 >"$out/run.log" 2>&1 &
 pid=$!
 sleep 2
 shot() { import -window root "$out/$1.png"; }
@@ -22,6 +22,13 @@ sleep 2; shot 5-match
 xdotool keydown f; sleep 1; xdotool keyup f; shot 6-match-attack
 kill -0 $pid                     # still running = no crash
 kill $pid; wait $pid 2>/dev/null || true
+
+# Audio: the mixer opened on the dummy driver, the stage music loaded without
+# a warning, and the fighters' PlaySnd reached the player (the fixture
+# characters have no sound bank, so it logs the expected "no such sample").
+grep -q '^audio: dummy$' "$out/run.log" || { echo "mixer did not open on the dummy driver:"; cat "$out/run.log"; exit 1; }
+! grep -qE 'audio: (cannot|some|music|could not)' "$out/run.log" || { echo "audio warning during the match:"; cat "$out/run.log"; exit 1; }
+grep -q 'audio: skipping sound 5,0' "$out/run.log" || { echo "PlaySnd never reached the audio player:"; cat "$out/run.log"; exit 1; }
 
 # The stage's own sky sprite (#5A96E6) must be drawn, not the flat fallback backdrop.
 sky=$(convert "$out/5-match.png" -format '%[hex:u.p{200,300}]' info:)

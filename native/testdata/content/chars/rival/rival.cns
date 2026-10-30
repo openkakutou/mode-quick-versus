@@ -26,6 +26,11 @@ physics         = S
 anim            = 200
 ctrl            = 0
 
+[State 200, Sound]
+type = PlaySnd
+trigger1 = Time = 0
+value = 5, 0
+
 [State 200, Hit]
 type = HitDef
 trigger1 = Time = 0

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In the native game, the stage's music now plays during a match, looping across rounds and on the result screen, and fighters' sound effects play when they trigger, like the web version. If there is no sound device or a sound file cannot be read, the game stays silent and keeps running.
+
 ## [0.15.0] - 2026-10-30
 ### Added
 

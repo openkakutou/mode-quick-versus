@@ -21,22 +21,24 @@ A missing or version-mismatched WASM asset at runtime (the pipeline's own downlo
 
 A second, independent Go program in `native/` (`go-gl` + `veandco/go-sdl2`, no WASM, no webview) importing `character`/`stage`/`sff`/`engine` as native Go packages. Android is out of scope (roadmap decision `027`).
 
-Everything native is built and tested inside a Docker image (`native/Dockerfile`: Go, SDL2 headers, `pkg-config`, Xvfb, mingw-w64 plus the SDL2 mingw development files), so a fresh checkout needs only Docker:
+Everything native is built and tested inside a Docker image (`native/Dockerfile`: Go, SDL2 and SDL2_mixer headers, `pkg-config`, Xvfb, mingw-w64 plus the SDL2 and SDL2_mixer mingw development files), so a fresh checkout needs only Docker:
 
 ```bash
 native/scripts/test.sh              # gofmt check, go vet, unit tests
 native/scripts/build.sh linux       # -> native/dist/quickversus-linux-amd64
-native/scripts/build.sh windows     # -> native/dist/quickversus-windows-amd64.exe + SDL2.dll (keep them together)
+native/scripts/build.sh windows     # -> native/dist/quickversus-windows-amd64.exe + SDL2.dll + SDL2_mixer.dll (keep them together)
 native/scripts/smoke.sh             # runs the Linux build under Xvfb, drives it with real key presses
                                     #   (select -> stage -> setup -> match), screenshots to native/dist/smoke/
 ```
 
 Running it: `quickversus -content <dir>` where `<dir>` holds `chars/<name>/<name>.def` (one folder per character) and `stages/*.def`. A tiny fixture lives in `native/testdata/content`. Controls match the web build: P1 WASD + F/G/H/R/T/Y, P2 arrows + J/K/L/I/O/P; menus use arrows/WASD, Enter, Esc. `-frames N -capture out.png` renders N frames, saves a screenshot and exits.
 
-**macOS** cannot be built from Linux/Docker. `.github/workflows/native.yml` has a `macos` job (Homebrew SDL2, `go vet`, `go test`, `go build`) that is **unverified**: it has never been run by the author. Its first real run on GitHub is the first verification.
+**Audio** (SDL2_mixer): the stage music loops for the whole match and the fighters' sound effects play through up to 16 channels. Tests and the Xvfb smoke run use the dummy audio driver (`SDL_AUDIODRIVER=dummy`, set by `native/scripts/docker.sh`), so they prove the mixer opens, the music loads and the effects reach it, not what is audible. Without a usable audio device the game logs one warning and stays silent. Test audio fixtures: `native/testdata/README.md`. At runtime Linux needs the `libsdl2-mixer-2.0-0` package (plus `libvorbisfile3`/`libmpg123-0` for ogg/mp3 music) and macOS needs `brew install sdl2_mixer`.
+
+**macOS** cannot be built from Linux/Docker. `.github/workflows/native.yml` has a `macos` job (Homebrew SDL2 and SDL2_mixer, `go vet`, `go test` with the dummy audio driver, `go build`) that is **unverified**: it has never been run by the author. Its first real run on GitHub is the first verification, including whether the mixer links and decodes ogg/mp3 there.
 
 **Windows** is cross-compiled in the container and produces a valid PE32+ executable, but it has **not been executed** anywhere: Go binaries do not start under Wine in the container, and no Windows machine was available.
 
 **Dependency note:** `engine` tags are `v2.x` without a `/v2` module path, so Go cannot resolve them by tag; `native/go.mod` pins the tagged commit's pseudo-version instead (see `.vibe/decisions/014`).
 
-**Known gaps in the native build:** no audio, stage backgrounds drawn as flat colors (stage sprite layers not rendered), and only character sprites are textured.
+**Known gaps in the native build:** stage backgrounds drawn as flat colors (stage sprite layers not rendered), and only character sprites are textured.

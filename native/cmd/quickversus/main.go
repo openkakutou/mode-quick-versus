@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/openkakutou/engine/input"
+	"github.com/openkakutou/mode-quick-versus/native/internal/audio"
 	"github.com/openkakutou/mode-quick-versus/native/internal/game"
 	"github.com/openkakutou/mode-quick-versus/native/internal/gfx"
 )
@@ -45,6 +46,10 @@ func run() error {
 	fmt.Println("renderer:", win.Renderer())
 	renderer := gfx.NewRenderer(win)
 
+	aud := audio.New()
+	defer aud.Close()
+	fmt.Println("audio:", aud.Driver())
+
 	pads := gfx.NewGamepads()
 	defer pads.Close()
 	var held [2]input.TickInput
@@ -58,6 +63,7 @@ func run() error {
 		for i := 0; i < ticks; i++ {
 			flow.Tick(held)
 		}
+		aud.Update(flow)
 		win.BeginFrame()
 		renderer.Draw(flow)
 		lastFrame := *frames > 0 && n+1 >= *frames

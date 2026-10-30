@@ -33,6 +33,8 @@ type Fighter struct {
 	Char    *character.Character
 	Cmd     cmd.CommandFile
 	SffPath string
+
+	sounds map[soundKey]character.Sound // built lazily by FindSound
 }
 
 // LoadFighter loads a character from its .def, including its parsed .cmd
@@ -143,6 +145,7 @@ type Match struct {
 	programs [2]engine.FighterProgram
 	runtimes [2]engine.FighterRuntime
 	tick     int
+	cues     []Cue // PlaySnd events not yet drained
 }
 
 // NewMatch assembles round 1 of a match.
@@ -186,6 +189,7 @@ func (m *Match) reset(roundNo int) error {
 	}
 	m.State = *state
 	m.tick = 0
+	m.cues = m.cues[:0]
 	m.LastRound = round.RoundResult{}
 	m.syncAnim()
 	return nil
@@ -212,6 +216,7 @@ func (m *Match) Step(in [2]input.TickInput) error {
 	}
 	m.State, m.runtimes = res.State, res.Fighters
 	m.syncAnim()
+	m.queueCues(res.Sounds)
 	if res.Round.Outcome != round.OutcomeNone {
 		m.LastRound = res.Round
 		m.Progress = m.Progress.RecordRoundResult(res.Round)

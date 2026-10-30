@@ -35,12 +35,14 @@ jobs:
             native/dist/quickversus-linux-amd64
             native/dist/quickversus-windows-amd64.exe
             native/dist/SDL2.dll
+            native/dist/SDL2_mixer.dll
             native/dist/smoke/*.png
 
   # UNVERIFIED LOCALLY: macOS cannot be built or run from Linux/Docker, so
   # this job has never been executed by the author -- its first real run on
   # GitHub is the first verification. It mirrors the Linux steps with
-  # Homebrew's SDL2 instead of the container.
+  # Homebrew's SDL2 and SDL2_mixer instead of the container. Linking the mixer
+  # and the availability of its ogg/mp3 decoders are unverified here too.
   macos:
     runs-on: macos-latest
     timeout-minutes: 30
@@ -51,10 +53,12 @@ jobs:
         with:
           go-version-file: native/go.mod
           cache-dependency-path: native/go.sum
-      - name: Install SDL2
-        run: brew install sdl2 pkg-config
+      - name: Install SDL2 and SDL2_mixer
+        run: brew install sdl2 sdl2_mixer pkg-config
       - name: Vet and test
         working-directory: native
+        env:
+          SDL_AUDIODRIVER: dummy # runners have no sound device
         run: go vet ./... && go test ./...
       - name: Build
         working-directory: native

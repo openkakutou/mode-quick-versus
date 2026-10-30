@@ -85,6 +85,9 @@ type Flow struct {
 	Match        *Match
 	cpu          *CPU // drives player 2 during a match when Player2CPU is set
 	cpuIn        input.TickInput
+	// musicFrom/musicPath memoize Music's resolved path (see Music).
+	musicFrom [2]string
+	musicPath string
 	// RoundOverTicks counts down while a finished round is shown.
 	RoundOverTicks int
 	// ResultWinner is the match winner shown on the result screen.
