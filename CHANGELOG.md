@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- In the native game, a match now shows the stage's background art behind and in front of the fighters, including animated elements and slower-scrolling distant layers, like the web version.
+
 ## [0.14.0] - 2026-10-30
 
 ### Added

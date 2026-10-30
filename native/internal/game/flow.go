@@ -80,9 +80,11 @@ type Flow struct {
 
 	Fighters [2]*Fighter
 	Stage    *stage.Stage
-	Match    *Match
-	cpu      *CPU // drives player 2 during a match when Player2CPU is set
-	cpuIn    input.TickInput
+	// StageDefPath is the chosen stage's .def, to find its sprite sheet.
+	StageDefPath string
+	Match        *Match
+	cpu          *CPU // drives player 2 during a match when Player2CPU is set
+	cpuIn        input.TickInput
 	// RoundOverTicks counts down while a finished round is shown.
 	RoundOverTicks int
 	// ResultWinner is the match winner shown on the result screen.
@@ -236,7 +238,7 @@ func (f *Flow) startMatch() {
 		f.fail(fmt.Sprintf("Could not load stage %q: %v", se.Name, err))
 		return
 	}
-	f.Stage = st
+	f.Stage, f.StageDefPath = st, se.DefPath
 	m, err := NewMatch(f.Fighters[0], f.Fighters[1], st, f.Setup())
 	if err != nil {
 		f.fail(fmt.Sprintf("Could not start the match: %v", err))

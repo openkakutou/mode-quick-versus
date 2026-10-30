@@ -24,7 +24,7 @@ rightbound = 160
 type = normal
 spriteno = 0,0
 layerno = 0
-start = 0,0
+start = -160,0
 
 [BG cloud]
 type = parallax
@@ -38,5 +38,5 @@ actionno = 200
 start = 50,30
 
 [Begin Action 200]
-0,0, 0,0, 10
-0,1, 0,0, 5
+2,0, 0,0, 10
+2,1, 0,0, 5

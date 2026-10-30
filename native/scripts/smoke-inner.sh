@@ -23,6 +23,10 @@ xdotool keydown f; sleep 1; xdotool keyup f; shot 6-match-attack
 kill -0 $pid                     # still running = no crash
 kill $pid; wait $pid 2>/dev/null || true
 
+# The stage's own sky sprite (#5A96E6) must be drawn, not the flat fallback backdrop.
+sky=$(convert "$out/5-match.png" -format '%[hex:u.p{200,300}]' info:)
+[ "$sky" = "5A96E6" ] || { echo "stage background layer missing: top-left pixel is $sky, want 5A96E6"; exit 1; }
+
 # 1b. Player 2 set to CPU on the setup screen: the CPU must walk on its own.
 ./dist/quickversus-linux-amd64 -content testdata/content -width 960 -height 720 &
 pid=$!

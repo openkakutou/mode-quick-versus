@@ -9,6 +9,7 @@ import (
 	"github.com/openkakutou/engine/round"
 	"github.com/openkakutou/mode-quick-versus/native/internal/game"
 	"github.com/openkakutou/sff"
+	"github.com/openkakutou/stage"
 )
 
 var (
@@ -27,6 +28,14 @@ var (
 // defaultGroundY is the screen row of the stage floor when a stage declares none.
 const defaultGroundY = 220
 
+// stageSheet is the spriteKey.fighter value of the stage's own sprite sheet;
+// a (group, image) pair is only unique within one sheet.
+const stageSheet = -1
+
+// layerPlaceholderSize is the tile drawn for a layer sprite that cannot be
+// loaded, the same 32 px tile as the web build.
+const layerPlaceholderSize = 32
+
 type spriteKey struct{ fighter, group, image int }
 
 // Renderer draws a game.Flow. It caches sprite textures per match so
@@ -35,6 +44,8 @@ type Renderer struct {
 	win       *Window
 	sprites   map[spriteKey]*Texture
 	loadedFor *game.Match
+	// behind/front are the stage's layer indexes, split once per match.
+	behind, front []int
 }
 
 // NewRenderer builds a renderer for win.
@@ -159,6 +170,8 @@ func (r *Renderer) loadSprites(f *game.Flow) {
 	}
 	clear(r.sprites)
 	r.loadedFor = f.Match
+	r.behind, r.front = game.SplitLayers(f.Stage.Elements)
+	r.loadStageSprites(f)
 	for i, fighter := range f.Fighters {
 		file, err := os.Open(fighter.SffPath)
 		if err != nil {
@@ -178,6 +191,59 @@ func (r *Renderer) loadSprites(f *game.Flow) {
 			}
 		}
 		file.Close()
+	}
+}
+
+// loadStageSprites uploads every sprite the stage's layers can show, from the
+// stage's own sheet. A missing sheet or sprite just leaves its layers on the
+// placeholder tile.
+func (r *Renderer) loadStageSprites(f *game.Flow) {
+	path := game.StageSpritePath(f.StageDefPath, f.Stage)
+	if path == "" {
+		return
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	load := func(ref stage.SpriteRef) {
+		k := spriteKey{stageSheet, ref.Group, ref.Image}
+		if ref.IsBlank() || r.sprites[k] != nil {
+			return
+		}
+		px, wd, ht, err := sff.ResolveSpritePixels(file, ref.Group, ref.Image, nil)
+		if err != nil || wd == 0 || ht == 0 {
+			return
+		}
+		r.sprites[k] = NewTexture(px, wd, ht)
+	}
+	for _, e := range f.Stage.Elements {
+		load(e.Sprite)
+		if e.Type == stage.BGElementAnim {
+			for _, fr := range f.Stage.Animations[e.ActionNumber].Frames {
+				load(fr.Sprite)
+			}
+		}
+	}
+}
+
+// drawLayers draws the stage elements at idx (back-to-front) as they stand
+// ticks into the round with the camera at camX.
+func (r *Renderer) drawLayers(f *game.Flow, idx []int, ticks int, camX float64) {
+	for _, i := range idx {
+		e := f.Stage.Elements[i]
+		ref, ok := game.LayerSprite(f.Stage, e, ticks)
+		if !ok {
+			continue
+		}
+		ox, oy := game.LayerOffset(e, camX)
+		x, y := VW/2+float32(ox), float32(oy)
+		if t := r.sprites[spriteKey{stageSheet, ref.Group, ref.Image}]; t != nil {
+			r.win.Sprite(t, x, y, false)
+		} else {
+			r.win.Rect(x, y, layerPlaceholderSize, layerPlaceholderSize, grey)
+		}
 	}
 }
 
@@ -229,12 +295,15 @@ func (r *Renderer) drawMatch(f *game.Flow) {
 	if z := f.Stage.BGdef.ZOffset; z > 0 {
 		groundY = float32(z)
 	}
-	w.Rect(0, 0, VW, groundY, skyBg)
-	w.Rect(0, groundY, VW, VH-groundY, floor)
+	if len(f.Stage.Elements) == 0 { // a stage with no art keeps the flat backdrop
+		w.Rect(0, 0, VW, groundY, skyBg)
+		w.Rect(0, groundY, VW, VH-groundY, floor)
+	}
 
 	p1 := m.State.Fighters[match.SideP1]
 	p2 := m.State.Fighters[match.SideP2]
 	camX := float32(p1.Position.X+p2.Position.X) / 2
+	r.drawLayers(f, r.behind, m.Ticks(), float64(camX))
 	for i, fs := range []match.FighterState{p1, p2} {
 		sx := VW/2 + float32(fs.Position.X) - camX
 		sy := groundY + float32(fs.Position.Y)
@@ -260,6 +329,7 @@ func (r *Renderer) drawMatch(f *game.Flow) {
 			w.Rect(sx-8, sy-60, 16, 60, col)
 		}
 	}
+	r.drawLayers(f, r.front, m.Ticks(), float64(camX))
 	r.drawHUD(f)
 }
 

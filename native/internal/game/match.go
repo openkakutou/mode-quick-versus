@@ -220,6 +220,9 @@ func (m *Match) Step(in [2]input.TickInput) error {
 	return nil
 }
 
+// Ticks is how many ticks the current round has simulated.
+func (m *Match) Ticks() int { return m.tick }
+
 // RoundEnded reports that the current round has an outcome.
 func (m *Match) RoundEnded() bool { return m.LastRound.Outcome != round.OutcomeNone }
 
