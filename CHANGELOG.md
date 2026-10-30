@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-30
+
 ### Added
 
 - In the native game, a connected gamepad now drives the menus and the match: the first pad is player 1, the second player 2, and a player without a pad keeps the keyboard, also after an unplug.
@@ -95,7 +97,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The character roster discovery/selection screen: characters configured in a deployable roster manifest are validated and displayed with their name and a portrait; a character that fails to load shows a clear error card instead of crashing or being silently dropped. Player 1 and Player 2 each pick a character independently, including picking the same character for a mirror match, and can't continue until both have picked.
 
-[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/openkakutou/mode-quick-versus/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/openkakutou/mode-quick-versus/compare/v0.10.0...v0.11.0
