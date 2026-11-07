@@ -36,6 +36,10 @@ Applies to any in-match rendering/update code — native (`go-gl`+SDL2) first an
 - **Spike numbers are a scale reference, not a shipped target**: `benchmarks/render-lang-spike/RESULTS.md` measured ~1.5 ms/frame for 200 sprites under software rendering (no GPU in that environment) — useful to sanity-check that new rendering work isn't regressing by an order of magnitude, not a number to cite as guaranteed real-hardware performance.
 - **Android GLES gap** (roadmap backlog `010`) is a separate, still-open concern — desktop `go-gl` calls don't run as-is on Android's OpenGL ES. Don't assume Android parity with the desktop renderer until that item resolves.
 
+## Compatibility target (MUST) <!-- keep -->
+
+Every feature and fix touching MUGEN/Ikemen GO formats or behavior must be compatible with **both MUGEN 1.0/1.1 and Ikemen GO**, extensions included, and validated against real community files — never MUGEN-only, never from memory. Where the two engines diverge, record the divergence and the chosen behavior in an ADR, and ground engine-behavior claims in a source (fixture, doc, engine source), marking anything unverified. This is an org-wide rule (`roadmap/repos.md`), already settled: do not ask the user whether it applies, and carry it as a 🔒 MUST in every need framing, implementer prompt and review.
+
 ## Architecture
 
 Early scaffold stage — only the build setup and an entry point exist so far.
